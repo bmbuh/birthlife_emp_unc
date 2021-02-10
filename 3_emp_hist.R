@@ -94,18 +94,36 @@ testemp %>%
 # Fertility and Emp -----------------------------------------------
 ###########################################################################
 #Use xwave data to find the data needed to filter the sample
-x_sample2 <- x_sample %>% 
-  rename("pidp" = "mpidp")
+# x_sample2 <- x_sample %>% 
+#   rename("pidp" = "mpidp")
 
 #merges the data from 
+#x_sample comes from script "2_fert_hist"
 emp_fb <- 
-  left_join(emp_his, x_sample2, by = "pidp") %>% 
+  left_join(emp_his, x_sample, by = "pidp") %>% 
   left_join(., first_born, by = "pidp")
+
+emp_fb %>% 
+  mutate(year = year(kdob)) %>% 
+  filter(year >= 2008) %>% 
+  count(year)
+
+emp_fb %>% 
+  count(hhorig)
 
 #removes samples from BHPS and starting wave 6
 emp_fb_ukhls <- emp_fb %>% 
   filter(hhorig == 1 | hhorig == 2 | hhorig == 7) %>% 
   dplyr::select(-job_hours, -job_change, -start_flag, -end_flag, -end_und, -status_spells)
+
+#test to see where we are losing first births. Here!
+emp_fb_ukhls %>% 
+  mutate(year = year(kdob)) %>% 
+  filter(year >= 2008) %>% 
+  count(year)
+
+emp_fb_ukhls %>% 
+  count(hhorig)
 
 #The sample that will be used to produce the PJI
 #Left censors: a.) finished education (not including those who go back) [lca]
@@ -118,8 +136,10 @@ pji_sample <- emp_fb_ukhls %>%
   mutate(start_date = as.POSIXct(start_date)) %>%
   mutate(age_start = (dob %--% start_date)/dyears(1)) %>%  #This is the process to remove respondents less than 16 [lcb]
   filter(age_start >= 16) %>% 
-  mutate(lagged_kdob = kdob - dmonths()) %>% 
-  mutate(age49 = dob + dyears(49))
+  mutate(lagged_kdob = kdob - dmonths(9) + ddays(4)) %>% 
+  mutate(age49 = dob + dyears(49)) %>% 
+  rename("sex" = "sex.x") %>% 
+  select(-sex.y)
   
 
 str(pji_sample)
@@ -127,22 +147,31 @@ str(pji_sample)
 pji_sample %>% 
   count(stu_spell)
 
+#I am losing first births between these steps, why???
+pji_sample %>% 
+  mutate(year = year(kdob)) %>% 
+  filter(year >= 2008) %>% 
+  count(year)
 
-#One set for women
-f_emp_fb <- emp_fb_ukhls %>% 
-  filter(sex == 2)
-
-#One set for men
-m_emp_fb <- emp_fb_ukhls %>% 
-  filter(sex == 2)
-
-
-emp_fb_ukhls %>% 
-  count(stu_spell)
 
 saveRDS(pji_sample, file = "pji_sample.rds")
 pji_sample <- file.choose()
 pji_sample<- readRDS(pji_sample)
+
+test_pji_sample <- pji_sample %>% 
+  mutate(year = year(kdob)) %>% 
+  group_by(pidp) %>% 
+  mutate(time = row_number()) %>% 
+  ungroup() %>% 
+  dplyr::select(pidp, year, time) %>% 
+  mutate(wave = "wave") %>% 
+  unite(waves, wave, time, remove = TRUE) %>% 
+  pivot_wider(names_from = waves, values_from = year) %>% 
+  mutate(fb = ifelse(wave_1 > 0, 1, 0))
+
+test_pji_sample %>% 
+  filter(wave_1 >= 2008 | is.na(wave_1)) %>% 
+  count(wave_1)
 
 ############################################################################
 # Creation of panel data for PJI ------------------------------------------
@@ -204,9 +233,9 @@ pji5 <- pji4 %>%
 # grouping_pji5 <- pji5 %>% 
 #   pad(group = "pidp")
 
-saveRDS(grouping_dt2, file = "grouping_dt2.rds")
-test_grouping_dt2 <- file.choose()
-test_grouping_dt2<- readRDS(test_grouping_dt2)
+# saveRDS(grouping_dt2, file = "grouping_dt2.rds")
+# test_grouping_dt2 <- file.choose()
+# test_grouping_dt2<- readRDS(test_grouping_dt2)
 
 ###Start here
 #This should be working!!! Why isn't it!!!!!!
@@ -218,7 +247,7 @@ pji6 <- pji5 %>%
   distinct(pidp, date, .keep_all = TRUE) 
 
 pji6_2 <- pji6 %>% 
-  dplyr::select(pidp, sex, dob, hhorig, lagfb)
+  dplyr::select(pidp, lagfb)
 
 #Used to create LP (unemp) and IP (emp_ratio) vectors
 panel_pji <- pji6 %>% 
@@ -228,7 +257,9 @@ panel_pji <- pji6 %>%
   mutate(unemp = mn_amt * mn_unemp, 
          unemp = ifelse(unemp > 0, 1, unemp)) %>% 
   mutate(emp_ratio = (mn_unemp/mn_amt)) %>% 
-  mutate(time = row_number()) %>% 
+  mutate(time = row_number()) %>%
+  arrange(pidp, desc(time)) %>% 
+  mutate(rev_time = row_number()) %>% 
   ungroup() 
 
 str(panel_pji)
@@ -273,11 +304,63 @@ pji_var <- pji_complete %>%
   left_join(., pji_dem, by = "pidp") %>% 
   distinct(pidp, yr, .keep_all = TRUE) %>% 
   mutate(sex = as.factor(sex)) %>% 
-  mutate(fbyear = year(lagfb))
+  mutate(fbyear = year(lagfb)) %>% 
+  mutate(sex = recode(sex,
+                      "-9"="Missing",
+                      "1" = "Male",
+                      "2" = "Female")) %>% 
+  mutate(fbyes = ifelse(is.na(fbyear), 0, 1))
 
 pji_var %>% 
-  dplyr::filter(is.na(fbyear) | fbyear > 2006) %>% 
-  ggplot(aes(ee, fill = sex)) +
-  geom_histogram(binwidth = 0.05)
+  dplyr::filter(is.na(fbyear) | fbyear > 2008) %>% 
+  ggplot(aes(se_ee, fill = sex)) +
+  geom_histogram(binwidth = 0.03) +
+  scale_fill_brewer(palette = "Dark2") +
+  theme(aspect.ratio = 1) +
+  labs(fill = "Sex") +
+  xlab("Persistent Joblessness Index: 1 = Continiously Jobless") + 
+  ggtitle("Persistent Joblessness Index", subtitle =  "UKHLS = Measured 9 months before first birth") +
+  ggsave("pji_hist_sex.png")
+
+pji_var_cut %>% 
+  mutate(fbyes = as.character(fbyes)) %>% 
+  dplyr::filter(is.na(fbyear) | fbyear >= 2008) %>% 
+  ggplot(aes(se_ee, fill = fbyes)) +
+  geom_histogram(binwidth = 0.03) +
+  scale_fill_brewer(palette = "Set1") +
+  theme(aspect.ratio = 1) +
+  labs(fill = "Sex") +
+  xlab("Persistent Joblessness Index: 1 = Continiously Jobless") + 
+  ggtitle("Persistent Joblessness Index", subtitle =  "UKHLS = Measured 9 months before first birth") +
+  ggsave("pji_hist_sex.png")
+
+pji_var %>% 
+  count(fbyes)
+
+pji_var_cut <- pji_var %>% 
+  dplyr::filter(is.na(fbyear) | fbyear >= 2008) %>% 
+  mutate(year49 = year(age49)) %>% 
+  filter(year49 > 2008)
+
+wide_pji_f <- pji_var_cut %>% 
+  filter(sex == "Female") %>% 
+  dplyr::select(pidp, fbyear, time) %>% 
+  mutate(wave = "wave") %>% 
+  unite(waves, wave, time, remove = TRUE) %>% 
+  pivot_wider(names_from = waves, values_from = fbyear) %>% 
+  mutate(fb = ifelse(wave_1 > 0, 1, 0))
+
+wide_pji_m <- pji_var_cut %>% 
+  filter(sex == "Male") %>% 
+  dplyr::select(pidp, fbyear, time) %>% 
+  mutate(wave = "wave") %>% 
+  unite(waves, wave, time, remove = TRUE) %>% 
+  pivot_wider(names_from = waves, values_from = fbyear) %>% 
+  mutate(fb = ifelse(wave_1 > 0, 1, 0))
 
 
+wide_pji_f %>% 
+  count(wave_1)
+
+wide_pji_m %>% 
+  count(wave_1)

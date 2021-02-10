@@ -193,9 +193,11 @@ panel_all_sample <- all_sample %>%
     qfhigh_dv <= 6 ~ "high",
     qfhigh_dv <= 12 & qfhigh_dv >=7 ~ "medium",
     qfhigh_dv >=13 & qfhigh_dv <= 15 ~ "low",
-    qfhigh_dv >= 16 & qfhigh_dv <= 0 ~ "NA"))
+    qfhigh_dv >= 16 & qfhigh_dv <= 0 ~ "NA")) 
 
-test_impute%>% 
+str(panel_all_sample)
+
+%>% 
   relocate("edu_cat", .after = "qfhigh_dv")
 
 %>% 
