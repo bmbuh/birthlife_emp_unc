@@ -22,3 +22,4 @@ rename emp_ratio pgap
 
 lpi poor, se(se) ee(ee) se_ee(se_ee) pgap(pgap) id(id) time(yr) alpha(0.8)
 
+save "S:\PJI Busetta Mendola\panel_pji_run.dta", replace
