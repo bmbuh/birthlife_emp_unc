@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 20.01.2020
-#Last Updated: 10.02.2021
+#Last Updated: 11.02.2021
 
 library(tidyverse)
 library(haven)
@@ -23,7 +23,7 @@ library(lubridate)
 
 #Using xwave data to catch all possible respondents
 x_sample <- xwave %>% 
-  dplyr::select(pidp, hhorig, sex, birthm, birthy) %>% 
+  dplyr::select(pidp, hhorig, sex, birthm, birthy, anychild_dv) %>% 
   rename("doby" = "birthy") %>% 
   rename("dobm" = "birthm") %>% 
   unite(dob, c(dobm, doby), sep = "-") %>% 
@@ -225,13 +225,17 @@ first_born <- fert_his %>%
   filter(bno == 1) %>% 
   ungroup() %>% 
   filter(check == 0 | is.na(check)) %>% 
-  dplyr::select(pidp, kdob, sex)
+  dplyr::select(pidp, kdob, sex, hhorig)
 
 test_first_born <- first_born %>%
   mutate(year = year(kdob)) %>% 
-  filter(year >= 2008)
+  filter(year >= 2008, hhorig == 1 | hhorig == 2 | hhorig == 7)
 
-test_first_born %>% 
+first_born_ukhls <- first_born %>%
+  mutate(year = year(kdob)) %>% 
+  filter(year >= 2008, hhorig == 1 | hhorig == 2 | hhorig == 7)
+
+count_firstborn <- test_first_born %>% 
   count(year)
 
 

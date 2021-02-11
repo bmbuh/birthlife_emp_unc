@@ -197,6 +197,19 @@ panel_all_sample <- all_sample %>%
 
 str(panel_all_sample)
 
+#Test for seeing if there is a loss of first borns
+test_panel_all_sample <- panel_all_sample %>% 
+  mutate(year = year(kdob)) %>% 
+  dplyr::select(pidp, year, wave) %>% 
+  mutate(waves = "wave") %>% 
+  unite(names, waves, wave, remove = TRUE) %>% 
+  pivot_wider(names_from = names, values_from = year) %>% 
+  mutate(fb = ifelse(wave_1 > 0, 1, 0))
+
+count_panel_all_sample <- test_panel_all_sample %>% 
+  filter(wave_1 >= 2008 | is.na(wave_1)) %>% 
+  count(wave_1)
+
 %>% 
   relocate("edu_cat", .after = "qfhigh_dv")
 
@@ -207,3 +220,19 @@ test_impute %>%
   ggplot(aes(se_ee)) +
   geom_histogram(binwidth = 0.05)
 
+
+###########################################################################
+# Adding in the PJI -------------------------------------------------------
+###########################################################################
+
+
+pji_clean <- pji_complete %>% 
+  rename("pidp" = "id") %>% 
+  filter(!is.na(se)) %>% 
+  select(pidp, se, ee, se_ee)
+
+panel_all_sample_pji <- 
+  left_join(panel_all_sample, pji_clean, by = "pidp") %>% 
+  filter(!is.na(se)) %>% 
+  mutate(fbyear = year(kdob)) %>% 
+  filter(fbyear >= 2007 | is.na(fbyear))
