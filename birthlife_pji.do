@@ -1,6 +1,8 @@
 *Coded by: Brian Buh
 *Created on: 10.02.2021
 *Updated on: 11.02.2021
+/* This do file was created to use the lpi package created by Busetta and Mendola
+The data was manipulated in R using the R files present here */
 
 cd "S:\PJI Busetta Mendola"
 
