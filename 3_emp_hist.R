@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 25.01.2020
-#Last Updated: 09.02.2021
+#Last Updated: 10.02.2021
 
 # install.packages("padr")
 # install.packages("data.table")
@@ -101,12 +101,32 @@ testemp %>%
 #x_sample comes from script "2_fert_hist"
 emp_fb <- 
   left_join(emp_his, x_sample, by = "pidp") %>% 
-  left_join(., first_born, by = "pidp")
+  left_join(., first_born, by = "pidp") %>% 
+  rename("hhorig" = "hhorig.x") %>% 
+  dplyr::select(-hhorig.y)
 
 emp_fb %>% 
   mutate(year = year(kdob)) %>% 
   filter(year >= 2008) %>% 
   count(year)
+
+
+#test to see where we are losing first births. Here!
+#The answer is that some first borns came from BHSP or later waves
+test_emp_fb <- emp_fb %>% 
+  mutate(year = year(kdob)) %>% 
+  group_by(pidp) %>% 
+  mutate(time = row_number()) %>% 
+  ungroup() %>% 
+  dplyr::select(pidp, year, time) %>% 
+  mutate(wave = "wave") %>% 
+  unite(waves, wave, time, remove = TRUE) %>% 
+  pivot_wider(names_from = waves, values_from = year) %>% 
+  mutate(fb = ifelse(wave_1 > 0, 1, 0))
+
+count_emp_fb <- test_emp_fb %>% 
+  filter(wave_1 >= 2008 | is.na(wave_1)) %>% 
+  count(wave_1)
 
 emp_fb %>% 
   count(hhorig)
@@ -116,14 +136,22 @@ emp_fb_ukhls <- emp_fb %>%
   filter(hhorig == 1 | hhorig == 2 | hhorig == 7) %>% 
   dplyr::select(-job_hours, -job_change, -start_flag, -end_flag, -end_und, -status_spells)
 
-#test to see where we are losing first births. Here!
-emp_fb_ukhls %>% 
-  mutate(year = year(kdob)) %>% 
-  filter(year >= 2008) %>% 
-  count(year)
 
-emp_fb_ukhls %>% 
-  count(hhorig)
+#test to see where we are losing first births. Here!
+test_emp_fb_ukhls <- emp_fb_ukhls %>% 
+  mutate(year = year(kdob)) %>% 
+  group_by(pidp) %>% 
+  mutate(time = row_number()) %>% 
+  ungroup() %>% 
+  dplyr::select(pidp, year, time) %>% 
+  mutate(wave = "wave") %>% 
+  unite(waves, wave, time, remove = TRUE) %>% 
+  pivot_wider(names_from = waves, values_from = year) %>% 
+  mutate(fb = ifelse(wave_1 > 0, 1, 0))
+
+count_emp_fb_ukhls <- test_emp_fb_ukhls %>% 
+  filter(wave_1 >= 2008 | is.na(wave_1)) %>% 
+  count(wave_1)
 
 #The sample that will be used to produce the PJI
 #Left censors: a.) finished education (not including those who go back) [lca]
@@ -134,13 +162,15 @@ emp_fb_ukhls %>%
 pji_sample <- emp_fb_ukhls %>% 
   filter(stu_spell != 1) %>% #This removes spells before the entrance into the labor market [lca]
   mutate(start_date = as.POSIXct(start_date)) %>%
-  mutate(age_start = (dob %--% start_date)/dyears(1)) %>%  #This is the process to remove respondents less than 16 [lcb]
-  filter(age_start >= 16) %>% 
+  #mutate(age_start = (dob %--% start_date)/dyears(1)) %>%  #This is the process to remove respondents less than 16 [lcb]
+  # filter(age_start >= 16) %>% #this filter is too early! This needs to be down when we have monthly records or we remove whole spells!
   mutate(lagged_kdob = kdob - dmonths(9) + ddays(4)) %>% 
   mutate(age49 = dob + dyears(49)) %>% 
   rename("sex" = "sex.x") %>% 
   select(-sex.y)
-  
+
+pji_sample %>% 
+  count(age_start)
 
 str(pji_sample)
 
@@ -169,7 +199,11 @@ test_pji_sample <- pji_sample %>%
   pivot_wider(names_from = waves, values_from = year) %>% 
   mutate(fb = ifelse(wave_1 > 0, 1, 0))
 
-test_pji_sample %>% 
+count_pji_sample <- test_pji_sample %>% 
+  filter(wave_1 >= 2008 | is.na(wave_1)) %>% 
+  count(wave_1)
+
+count_pji_sample2 <- test_pji_sample %>% 
   filter(wave_1 >= 2008 | is.na(wave_1)) %>% 
   count(wave_1)
 
@@ -198,24 +232,86 @@ test_pji_sample %>%
 pji1 <- transform(pji_sample, from = as.Date(start_date), to = as.Date(end_date), lagfb = as.Date(lagged_kdob))
 
 pji2 <- pji1 %>%
-  dplyr::select(pidp, unemp, to, from, lagfb, age49, sex, hhorig, dob)
+  dplyr::select(pidp, unemp, to, from, lagfb, age49, sex, hhorig, dob, kdob)
 
 dt <- data.table(pji2)
-pji3 <- dt[, list(pidp, unemp, lagfb, age49, sex, hhorig, dob, date = seq(from, to, by = "month")), by = 1:nrow(dt)]
+pji3 <- dt[, list(pidp, unemp, lagfb, age49, sex, hhorig, dob, kdob, date = seq(from, to, by = "month")), by = 1:nrow(dt)] %>% 
+  mutate(age_start = (dob %--% date)/dyears(1)) 
 
+test_pji3 <- pji3 %>% 
+  mutate(fbyear = year(lagfb)) %>% 
+  group_by(pidp) %>% 
+  mutate(time = row_number()) %>% 
+  ungroup() %>% 
+  dplyr::select(pidp, fbyear, time) %>% 
+  mutate(wave = "wave") %>% 
+  unite(waves, wave, time, remove = TRUE) %>% 
+  pivot_wider(names_from = waves, values_from = fbyear) %>% 
+  mutate(fb = ifelse(wave_1 > 0, 1, 0))
+
+count_pji3 <- test_pji3 %>% 
+  filter(wave_1 >= 2008 | is.na(wave_1)) %>% 
+  count(wave_1)
+
+#This data set is to discover why there are fewer first births after filtering the data set
+#The answer is that someone people first birth comes before first employment observation
+fert_check_pji3 <- pji3 %>% 
+  group_by(pidp) %>% 
+  mutate(spell = row_number())%>% 
+  filter(spell == 1, !is.na(kdob)) %>% 
+  mutate(fbcheck = ifelse(date > kdob, 0, 1)) %>% 
+  mutate(fbyear = year(kdob)) %>% 
+  filter(fbyear >= 2008)
+
+%>% 
+  ungroup() 
+
+fert_check_pji3 %>% 
+  count(fbcheck = 1)
+
+
+
+
+###Here is out problem with losing first borns
 pji4 <- pji3 %>% 
-  mutate(age49 = as.Date(age49)) %>% 
-  mutate(diff_fb = date - lagfb) %>% 
-  filter(diff_fb <= 0 | is.na(diff_fb)) %>% 
-  mutate(fb_check = diff_fb == 0) %>% 
+  mutate(date = as.POSIXct(date)) %>% 
+  mutate(age49 = as.POSIXct(age49)) %>% 
+  mutate(lagfb = as.POSIXct(lagfb)) %>% 
+  mutate(lagfb = as.POSIXct(dob)) %>% 
+  mutate(lagfb = as.POSIXct(kdob)) %>% 
+  mutate(diff_fb = date - kdob) %>% #test to see if the lagged dates cause the problem
+  mutate(diff_lag = date - lagfb) %>%
   mutate(diff_age = date - age49) %>% 
+  distinct(pidp, date, .keep_all = TRUE) %>% 
+  filter(date <= kdob | is.na(kdob)) 
+
+str(pji4)
+  
+  
+  # filter(diff_fb <= 0| is.na(diff_fb)) %>% 
+  filter(diff_fb2 <= 1| is.na(diff_fb2)) %>% 
+  # mutate(fb_check = diff_fb == 0) %>% 
   filter(diff_age <= 0 | is.na(diff_age))
 
-pji4 %>% 
-  count(is.na(diff_fb))
+test_pji4 <- pji4 %>% 
+  mutate(fbyear = year(lagfb)) %>% 
+  group_by(pidp) %>% 
+  mutate(time = row_number()) %>% 
+  ungroup() %>% 
+  dplyr::select(pidp, fbyear, time) %>% 
+  mutate(wave = "wave") %>% 
+  unite(waves, wave, time, remove = TRUE) %>% 
+  pivot_wider(names_from = waves, values_from = fbyear) %>% 
+  mutate(fb = ifelse(wave_1 > 0, 1, 0))
 
 pji4 %>% 
-  count(diff_age >0)
+  mutate(fbcheck = ifelse(is.na(kdob), 0, 1)) %>% 
+  group_by(pidp) %>% 
+  count(fbcheck = 1)
+
+count_pji4 <- test_pji4 %>% 
+  filter(wave_1 >= 2008 | is.na(wave_1)) %>% 
+  count(wave_1)
 
 pji5 <- pji4 %>% 
   dplyr::select(-fb_check, -diff_fb, -diff_age)
@@ -296,6 +392,7 @@ write_dta(panel_pji, "panel_pji.dta")
 
 pji_complete <- read_dta("S:/R Files/Emp_Unc_Fertility_Birthlife/panel_pji_run.dta")
 
+
 pji_dem <- pji2 %>% 
   dplyr::select(-unemp, -to, -from)
 
@@ -310,6 +407,21 @@ pji_var <- pji_complete %>%
                       "1" = "Male",
                       "2" = "Female")) %>% 
   mutate(fbyes = ifelse(is.na(fbyear), 0, 1))
+
+#This is a test to check for number of newborns
+test_pji_var <- pji_var %>% 
+  group_by(pidp) %>% 
+  mutate(time = row_number()) %>% 
+  ungroup() %>% 
+  dplyr::select(pidp, fbyear, time) %>% 
+  mutate(wave = "wave") %>% 
+  unite(waves, wave, time, remove = TRUE) %>% 
+  pivot_wider(names_from = waves, values_from = fbyear) %>% 
+  mutate(fb = ifelse(wave_1 > 0, 1, 0))
+
+test_pji_var %>% 
+  filter(wave_1 >= 2008 | is.na(wave_1)) %>% 
+  count(wave_1)
 
 pji_var %>% 
   dplyr::filter(is.na(fbyear) | fbyear > 2008) %>% 
