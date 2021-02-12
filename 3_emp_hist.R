@@ -9,6 +9,7 @@ library(padr)
 library(tidyverse)
 library(haven)
 library(lubridate)
+library(arsenal)
 
 
 #This script takes the UKHLS employment histories as complied by Liam Wright
@@ -266,6 +267,7 @@ test_pji_var %>%
   filter(wave_1 >= 2008 | is.na(wave_1)) %>% 
   count(wave_1)
 
+#Histogram of PJI of sample (truncated)
 pji_var %>% 
   dplyr::filter(fbyear >= 2008 | is.na(fbyear), year49 >= 2008, se_ee != 0) %>% 
   ggplot(aes(se_ee, fill = fbyes)) +
@@ -278,17 +280,30 @@ pji_var %>%
   facet_wrap(~sex) +
   ggsave("pji_hist_sex.png")
 
+#Histogram of PJI of sample (NOT truncated)
 pji_var %>% 
-  mutate(fbyes = as.character(fbyes)) %>% 
-  dplyr::filter(is.na(fbyear) | fbyear >= 2008) %>% 
+  dplyr::filter(fbyear >= 2008 | is.na(fbyear), year49 >= 2008) %>% 
   ggplot(aes(se_ee, fill = fbyes)) +
-  geom_histogram(binwidth = 0.05) +
-  scale_fill_brewer(palette = "Set1") +
+  geom_histogram(binwidth = 0.03) +
+  scale_fill_brewer(palette = "Dark2") +
   theme(aspect.ratio = 1) +
   labs(fill = "Sex") +
   xlab("Persistent Joblessness Index: 1 = Continiously Jobless") + 
   ggtitle("Persistent Joblessness Index", subtitle =  "UKHLS = Measured 9 months before first birth") +
-  ggsave("pji_hist_second.png")
+  facet_wrap(~sex) +
+  ggsave("pji_hist_sex_full.png")
+
+# pji_var %>% 
+#   mutate(fbyes = as.character(fbyes)) %>% 
+#   dplyr::filter(is.na(fbyear) | fbyear >= 2008) %>% 
+#   ggplot(aes(se_ee, fill = fbyes)) +
+#   geom_histogram(binwidth = 0.05) +
+#   scale_fill_brewer(palette = "Set1") +
+#   theme(aspect.ratio = 1) +
+#   labs(fill = "Sex") +
+#   xlab("Persistent Joblessness Index: 1 = Continiously Jobless") + 
+#   ggtitle("Persistent Joblessness Index", subtitle =  "UKHLS = Measured 9 months before first birth") +
+#   ggsave("pji_hist_second.png")
 
 pji_var %>% 
   count(fbyes)
@@ -320,3 +335,16 @@ wide_pji_f %>%
 
 wide_pji_m %>% 
   count(wave_1)
+
+pji_var_cut <- pji_var %>% 
+  filter(!is.na(se_ee), fbyear >= 2008 | is.na(fbyear), year49 >= 2008)
+
+pji_var_cut %>% 
+  count(hhorig)
+
+mycontrols <- tableby.control(test = FALSE)
+pji_table <-arsenal::tableby(sex ~ fbyes + fbyear + se_ee + yr + year49, data = pji_var_cut, control = mycontrols)
+labels(pji_table) <-  c(sex = "Sex", fbyes = "First birth", fbyear =  "Year first born", se_ee = "PJI",
+                    yr = "Year first obs of emp hist", year49 =  "Year turn 49")
+summary(pji_table)
+write2word(pji_table, "pji_table.doc")
