@@ -2,6 +2,10 @@
 #Started on: 27.01.2020
 #Last Updated: 10.02.2020
 
+# install.packages("mice")
+
+library(mice)
+
 a_indresp %>% 
   count(a_ppid)
 
@@ -38,7 +42,7 @@ w9_even_var <- paste0('i_', even_wave_var)
 
 w10_odd_var <- paste0('j_', odd_wave_var)
 
-col_order <- c("pidp", "wave", "sex", "birthm", "birthy", "dvage", "qfhigh_dv", "racel_dv", "gor_dv", "finfut", "finnow", "jbsec")
+col_order <- c("pidp", "wave", "sex", "birthm", "birthy", "dvage", "qfhigh_dv", "racel_dv", "gor_dv", "finfut", "finnow", "jbsec", "ppid", "intdatm_dv", "intdaty_dv")
 
 
 #Preparing the variables for merging
@@ -119,13 +123,13 @@ str(ind_sample)
 # Variables from the xwavedat file ----------------------------------------
 ###########################################################################
 
-x_sample <- xwave %>% 
-  dplyr::select(pidp, hhorig, generation, lwenum_dv, fwenum_dv, fwintvd_dv, lwintvd_dv ) %>% 
+x_sample2 <- xwave %>% #not to be confused with x_sample located in scripts 2 and 3
+  dplyr::select(pidp, hhorig, generation, lwenum_dv, fwenum_dv, fwintvd_dv, lwintvd_dv, anychild_dv ) %>% 
   filter(hhorig <= 2 | hhorig == 7) %>% 
   dplyr::select(-hhorig)
   
 all_sample <- 
-  left_join(ind_sample,x_sample, by = "pidp")
+  left_join(ind_sample,x_sample2, by = "pidp")
 
 
 #Save and load the combined individual data file as an RDS
@@ -184,6 +188,8 @@ panel_all_sample <- all_sample %>%
   relocate("kdob", .after = "wave") %>% 
   dplyr:: select(-sex.y) %>% 
   rename("sex" = "sex.x") %>% 
+  dplyr:: select(-hhorig.y) %>% 
+  rename("hhorig" = "hhorig.x") %>% 
   group_by(pidp) %>% 
   fill(sex, .direction = "down") %>% 
   fill(sex, .direction = "up") %>% 
@@ -192,10 +198,15 @@ panel_all_sample <- all_sample %>%
   mutate(edu_cat = case_when(
     qfhigh_dv <= 6 ~ "high",
     qfhigh_dv <= 12 & qfhigh_dv >=7 ~ "medium",
-    qfhigh_dv >=13 & qfhigh_dv <= 15 ~ "low",
-    qfhigh_dv >= 16 & qfhigh_dv <= 0 ~ "NA")) 
+    qfhigh_dv >=13 & qfhigh_dv <= 15 ~ "low")) %>% 
+  mutate(edu_cat = ifelse(is.na(edu_cat), "unknown", edu_cat)) #unknown edu_qf for people at 16, 96 or missing
+
+qfhigh_dv >= 16 & qfhigh_dv <= 0 ~ "unknown"
 
 str(panel_all_sample)
+
+panel_all_sample %>% 
+  count(finnow)
 
 #Test for seeing if there is a loss of first borns
 test_panel_all_sample <- panel_all_sample %>% 
@@ -224,7 +235,7 @@ test_impute %>%
 ###########################################################################
 # Adding in the PJI -------------------------------------------------------
 ###########################################################################
-
+#pji_complete comes from the script 3_emp_hist
 
 pji_clean <- pji_complete %>% 
   rename("pidp" = "id") %>% 
@@ -235,4 +246,88 @@ panel_all_sample_pji <-
   left_join(panel_all_sample, pji_clean, by = "pidp") %>% 
   filter(!is.na(se)) %>% 
   mutate(fbyear = year(kdob)) %>% 
-  filter(fbyear >= 2007 | is.na(fbyear))
+  filter(fbyear >= 2007 | is.na(fbyear)) %>% 
+  group_by(pidp) %>% 
+  fill(fwintvd_dv, .direction = "down") %>% #Fills in the NA from first interview wave
+  fill(fwintvd_dv, .direction = "up") %>% 
+  mutate(fwtest = wave - fwintvd_dv) %>% #Creates a variable where negative numbers symbolize waves before the respondents FW
+  fill(lwintvd_dv, .direction = "down") %>% #Fills in the NA from the last interview
+  fill(lwintvd_dv, .direction = "up") %>% 
+  mutate(lwtest = lwintvd_dv - wave) #Creates a variable where negative numbers symbolize waves after the respondents LW
+  
+
+%>% 
+  fill(qfhigh_dv, .direction = "down") %>% 
+
+panel_all_sample_pji %>% 
+  count(jbsec)
+
+panel_all_sample_pji %>% 
+  count(finfut)
+
+panel_all_sample_pji %>% 
+  count(finnow)
+
+###########################################################################
+# Impute missing finnow ---------------------------------------------------
+###########################################################################
+xsex <- xwave %>% 
+  dplyr::select(pidp, sex)
+
+#START WITH FINNOW
+#creates a wide format for the "finnow" variable
+wide_finnow <- panel_all_sample_pji %>% 
+  dplyr::select(pidp, wave, finnow) %>% 
+  # mutate(finnow = as.factor(finnow)) %>% 
+  mutate(wn = "w") %>% 
+  mutate(finnow = ifelse(finnow <= -1, NA, finnow)) %>% 
+  unite(wavenum, wn, wave, sep = "", remove = TRUE) %>% 
+  pivot_wider(names_from = wavenum, values_from = finnow) %>% 
+  mutate_if(is.numeric, as.factor) %>% 
+  left_join(., xsex, by = "pidp")
+
+test_anova <- aov(sex ~ w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 + w9 + w10, data = wide_finnow)
+summary(test_anova)
+#Using the mice package to perform propotional odds imputation for ordered categorical var
+
+#First, testing variables
+md.pattern(wide_finnow, plot = FALSE) #looks at the pattern of missing values
+flux(wide_finnow)[,1:3]
+fluxplot(wide_finnow) #Creates a plot to look at influx and outflux coefficents
+
+my_imp = mice(wide_finnow, m = 5, method = ("polr"))
+fit <- with(my_imp, lm(pidp ~ wave1 + wave2 + wave3 + wave4 + wave5 + wave6 + wave7 + wave8 + wave9 + wave10))
+est1 <- pool(fit)
+
+my_imp$predictorMatrix
+
+#tidy alternative
+my_imp2 <- wide_finnow %>% 
+  mice(method = ("polr")) %>% 
+  mice::complete("all") %>% 
+  map(lm, formula = sex ~ w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 + w9 + w10) %>% 
+  pool()
+
+summary(my_imp2)
+
+my_imp$imp$wave1  
+
+test_finnow = complete(my_imp,1)
+
+str(wide_finnow)
+
+test_finnow %>% 
+  summary()
+
+#SECOND FINFUT
+#creates a wide format for the "finfut" variable
+wide_finfut <- panel_all_sample_pji %>% 
+  dplyr::select(pidp, wave, finfut) %>% 
+  # mutate(finfut = as.factor(finfut)) %>% 
+  mutate(wn = "w") %>% 
+  mutate(finfut = ifelse(finfut <= -1, NA, finfut)) %>% 
+  unite(wavenum, wn, wave, sep = "", remove = TRUE) %>% 
+  pivot_wider(names_from = wavenum, values_from = finfut) %>% 
+  mutate_if(is.numeric, as.factor)
+
+fluxplot(wide_finfut) #Creates a plot to look at influx and outflux coefficents
