@@ -1,9 +1,10 @@
 #Coded by: Brian Buh
-#Started on: 27.01.2020
-#Last Updated: 10.02.2020
+#Started on: 27.01.2021
+#Last Updated: 17.02.2021
 
 # install.packages("mice")
 
+library(tidyverse)
 library(mice)
 
 a_indresp %>% 
@@ -194,6 +195,7 @@ panel_all_sample <- all_sample %>%
   fill(sex, .direction = "down") %>% 
   fill(sex, .direction = "up") %>% 
   fill(qfhigh_dv, .direction = "down") %>% 
+  fill(qfhigh_dv, .direction = "up") %>% 
   ungroup() %>% 
   mutate(edu_cat = case_when(
     qfhigh_dv <= 6 ~ "high",
@@ -201,7 +203,7 @@ panel_all_sample <- all_sample %>%
     qfhigh_dv >=13 & qfhigh_dv <= 15 ~ "low")) %>% 
   mutate(edu_cat = ifelse(is.na(edu_cat), "unknown", edu_cat)) #unknown edu_qf for people at 16, 96 or missing
 
-qfhigh_dv >= 16 & qfhigh_dv <= 0 ~ "unknown"
+# qfhigh_dv >= 16 & qfhigh_dv <= 0 ~ "unknown"
 
 str(panel_all_sample)
 
@@ -256,9 +258,6 @@ panel_all_sample_pji <-
   mutate(lwtest = lwintvd_dv - wave) #Creates a variable where negative numbers symbolize waves after the respondents LW
   
 
-%>% 
-  fill(qfhigh_dv, .direction = "down") %>% 
-
 panel_all_sample_pji %>% 
   count(jbsec)
 
@@ -274,6 +273,10 @@ panel_all_sample_pji %>%
 xsex <- xwave %>% 
   dplyr::select(pidp, sex)
 
+fb_check <- first_born %>% 
+  mutate(fb = 1) %>% 
+  dplyr::select(pidp, fb)
+
 #START WITH FINNOW
 #creates a wide format for the "finnow" variable
 wide_finnow <- panel_all_sample_pji %>% 
@@ -284,10 +287,12 @@ wide_finnow <- panel_all_sample_pji %>%
   unite(wavenum, wn, wave, sep = "", remove = TRUE) %>% 
   pivot_wider(names_from = wavenum, values_from = finnow) %>% 
   mutate_if(is.numeric, as.factor) %>% 
-  left_join(., xsex, by = "pidp")
+  left_join(., xsex, by = "pidp") %>% 
+  left_join(., fb_check, by = "pidp") %>% 
+  mutate(fb = ifelse(is.na(fb), 0, fb))
 
-test_anova <- aov(sex ~ w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 + w9 + w10, data = wide_finnow)
-summary(test_anova)
+test_wmw <- glm(formula = fb ~ w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 + w9 + w10, data = wide_finnow)
+summary(test_wmw)
 #Using the mice package to perform propotional odds imputation for ordered categorical var
 
 #First, testing variables
@@ -295,29 +300,60 @@ md.pattern(wide_finnow, plot = FALSE) #looks at the pattern of missing values
 flux(wide_finnow)[,1:3]
 fluxplot(wide_finnow) #Creates a plot to look at influx and outflux coefficents
 
-my_imp = mice(wide_finnow, m = 5, method = ("polr"))
-fit <- with(my_imp, lm(pidp ~ wave1 + wave2 + wave3 + wave4 + wave5 + wave6 + wave7 + wave8 + wave9 + wave10))
-est1 <- pool(fit)
+imp <-  mice(wide_finnow, m = 5, method = ("polr"))
+densityplot(imp)
+fit <- with(imp, glm(sex ~ w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 + w9 + w10, family = binomial(link = "logit")))
+summary(pool(fit))
+#In order to pick the best imputation you need to see the results of the analytical model
+#The following codes add in confidence intervals
+summary(pool(fit), conf.int = TRUE, exponentiate = TRUE)
 
-my_imp$predictorMatrix
+imp$predictorMatrix
 
 #tidy alternative
-my_imp2 <- wide_finnow %>% 
-  mice(method = ("polr")) %>% 
-  mice::complete("all") %>% 
-  map(lm, formula = sex ~ w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 + w9 + w10) %>% 
-  pool()
+# imp2 <- wide_finnow %>% 
+#   mice(method = ("polr")) %>% 
+#   mice::complete("all") %>% 
+#   map(glm, formula = fb ~ w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 + w9 + w10, family = binomial(link = "logit")) %>% 
+#   pool()
 
-summary(my_imp2)
 
-my_imp$imp$wave1  
+#After examining the analytical results, the best fit imputation set is number 4
+imp_wide_finnow = complete(imp, 4)
 
-test_finnow = complete(my_imp,1)
+imp_finnow <- imp_wide_finnow %>% 
+  dplyr::select(-sex, -fb) %>% 
+  pivot_longer(cols = c("w1", "w2", "w3", "w4", "w5", "w6", "w7", "w8", "w9", "w10"), names_to = "wavename", values_to = "finnow.imp") %>%
+  group_by(pidp) %>% 
+  mutate(wave = row_number()) %>% 
+  ungroup() %>% 
+  dplyr::select(-wavename) %>% 
+  mutate(finnow.imp = recode(finnow.imp,
+                             "1" = "1 Living comfortably",
+                             "2" = "2 Doing alright",
+                             "3" = "3 Just getting by",
+                             "4" = "4 Finding it quite difficult",
+                             "5" = "5 Finding it very difficult")) %>% 
+  mutate(finnow.imp = fct_relevel(finnow.imp, c( "1 Living comfortably",
+                                                 "2 Doing alright",
+                                                 "3 Just getting by",
+                                                 "4 Finding it quite difficult",
+                                                 "5 Finding it very difficult")))
 
-str(wide_finnow)
+imp_finnow %>% 
+  # dplyr::filter(!is.na(w10)) %>% 
+  ggplot(aes(finnow.imp)) +
+  geom_bar() +
+  scale_fill_brewer(palette = "Dark2") +
+  theme(aspect.ratio = 1)
 
-test_finnow %>% 
-  summary()
+panel_all_sample_pji %>% 
+  dplyr::filter(!is.na(finnow) | finnow > 0) %>% 
+  ggplot(aes(finnow)) +
+  geom_bar() +
+  scale_fill_brewer(palette = "Dark2") +
+  theme(aspect.ratio = 1)
+
 
 #SECOND FINFUT
 #creates a wide format for the "finfut" variable
@@ -328,6 +364,80 @@ wide_finfut <- panel_all_sample_pji %>%
   mutate(finfut = ifelse(finfut <= -1, NA, finfut)) %>% 
   unite(wavenum, wn, wave, sep = "", remove = TRUE) %>% 
   pivot_wider(names_from = wavenum, values_from = finfut) %>% 
-  mutate_if(is.numeric, as.factor)
+  mutate_if(is.numeric, as.factor)%>% 
+  left_join(., xsex, by = "pidp") %>% 
+  left_join(., fb_check, by = "pidp") %>% 
+  mutate(fb = ifelse(is.na(fb), 0, fb))
 
-fluxplot(wide_finfut) #Creates a plot to look at influx and outflux coefficents
+fluxplot(wide_finfut) #Creates a plot to look at influx and outflux coefficients
+
+imp_ff <-  mice(wide_finfut, m = 5, method = ("polr"))
+fit_ff <- with(imp_ff, glm(fb ~ w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 + w9 + w10, family = binomial(link = "logit")))
+summary(pool(fit_ff))
+summary(imp_ff)
+summary(pool(fit_ff), conf.int = TRUE, exponentiate = TRUE)
+test_finfut = complete(imp_ff, 2)
+
+#Testing to see changes in imputed data
+wide_finfut %>% 
+  # dplyr::filter(!is.na(w10)) %>% 
+  ggplot(aes(w5)) +
+  geom_bar() +
+  scale_fill_brewer(palette = "Dark2") +
+  theme(aspect.ratio = 1)
+
+test_finfut %>% 
+  dplyr::filter(!is.na(w10)) %>% 
+  ggplot(aes(w5)) +
+  geom_bar() +
+  scale_fill_brewer(palette = "Dark2") +
+  theme(aspect.ratio = 1)
+
+#Plots that help look at different between probability to be missing versus imputed
+#Diagnostic to help evalute if the imputation worked
+ps <- rep(rowMeans(sapply(fit_ff$analyses, fitted.values)),
+          imp_ff$m + 1)
+xyplot(imp_ff, w5 ~ ps | as.factor(.imp),
+       xlab = "Probability that record is incomplete",
+       ylab = "w1", pch = c(1, 19), col = mdc(1:2))
+
+imp_finfut <- test_finfut %>% 
+  dplyr::select(-sex, -fb) %>% 
+  pivot_longer(cols = c("w1", "w2", "w3", "w4", "w5", "w6", "w7", "w8", "w9", "w10"), names_to = "wavename", values_to = "finfut.imp") %>%
+  group_by(pidp) %>% 
+  mutate(wave = row_number()) %>% 
+  ungroup() %>% 
+  dplyr::select(-wavename) %>% 
+  mutate(finfut.imp = recode(finfut.imp,
+                      "1" = "Better off",
+                      "2" = "Worse off",
+                      "3" = "About the same"))
+
+
+###########################################################################
+# Adding imputed variables ------------------------------------------------
+###########################################################################
+
+paspji_imp <- panel_all_sample_pji %>% 
+  left_join(., imp_finnow, by = c("pidp", "wave")) %>% 
+  left_join(., imp_finfut, by = c("pidp", "wave")) %>% 
+  mutate(fb = ifelse(is.na(kdob), 0, 1)) %>% 
+  mutate(fb_check = anychild_dv - fb) %>% #There is a significant number of people who have had children, but I don't have their child's birthdate
+                                          #They need to be removed or they will bias towards the number of non-events
+  fill(birthm, .direction = "down") %>% #imputation of non-time varying var
+  fill(birthm, .direction = "up") %>% 
+  fill(birthy, .direction = "down") %>% #best to calculate age after transforming to monthly
+  fill(birthy, .direction = "up") 
+
+%>% 
+
+paspji_imp %>% 
+  ungroup() %>% 
+  count(edu_cat)
+
+#Save and load the combined individual data file as an RDS
+saveRDS(paspji_imp, file = "com_panel.rds")
+com_panel <- file.choose()
+com_panel <- readRDS(com_panel)
+
+
