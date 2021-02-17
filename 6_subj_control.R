@@ -233,6 +233,11 @@ test_impute %>%
   ggplot(aes(se_ee)) +
   geom_histogram(binwidth = 0.05)
 
+#Save and load the combined individual data file as an RDS
+saveRDS(panel_all_sample_pji, file = "panel_all_sample_pji.rds")
+panel_all_sample_pji <- file.choose()
+panel_all_sample_pji <- readRDS(panel_all_sample_pji)
+
 
 ###########################################################################
 # Adding in the PJI -------------------------------------------------------
@@ -266,6 +271,32 @@ panel_all_sample_pji %>%
 
 panel_all_sample_pji %>% 
   count(finnow)
+
+panel_all_sample_pji%>% 
+  mutate(jbsec = as.factor(jbsec)) %>% 
+  filter(fwtest >= 0, lwtest >= 0) %>%
+  filter(wave == 2 | wave == 4 | wave == 6 | wave == 8 | wave == 10) %>% 
+  mutate(jbsec = recode(jbsec,
+                             "1" = "1 very likely",
+                             "2" = "2 likely",
+                             "3" = "3 unlikely",
+                             "4" = "4 very unlikely",
+                             "-1" = "-1 don't know",
+                             "-8" = "-8 inapplicable",
+                              "-7" = "NA",
+                              "-2" = "NA",
+                                "-9" = "NA")) %>% 
+  mutate(jbsec = fct_relevel(jbsec, c( "1 very likely",
+                                                  "2 likely",
+                                                  "3 unlikely",
+                                                  "4 very unlikely",
+                                                  "-1 don't know",
+                                                  "-8 inapplicable"))) %>% 
+  # filter(edu_cat == "unknown") %>% 
+  # dplyr::filter(!is.na(w10)) %>% 
+  ggplot(aes(wave, fill = jbsec)) +
+  geom_bar()+
+  theme(aspect.ratio = 1)
 
 ###########################################################################
 # Impute missing finnow ---------------------------------------------------
@@ -433,7 +464,9 @@ paspji_imp <- panel_all_sample_pji %>%
 
 paspji_imp %>% 
   ungroup() %>% 
-  count(edu_cat)
+  filter(wave == 2 | wave == 4 | wave == 6 | wave == 8 | wave == 10) %>% 
+  filter(fwtest >= 0, lwtest >= 0) %>% 
+  count(jbsec)
 
 #Save and load the combined individual data file as an RDS
 saveRDS(paspji_imp, file = "com_panel.rds")
