@@ -1,11 +1,11 @@
 #Coded by: Brian Buh
 #Started on: 17.02.2021
-#Last Updated: 22.02.2021
+#Last Updated: 23.02.2021
 
 # install.packages("zoo")
 # install.packages("survminer")
-if(!require(devtools)) install.packages("devtools")
-devtools::install_github("kassambara/survminer", build_vignettes = FALSE)
+# if(!require(devtools)) install.packages("devtools")
+# devtools::install_github("kassambara/survminer", build_vignettes = FALSE)
 
 library(data.table)
 library(padr)
@@ -147,13 +147,39 @@ fsurv <- surv %>% #data set for women
   filter(sex == 2)
 
 #Kaplan-Meier non-parametric analysis
-kmsurv_sex <- survfit(Surv(time1, time2, event) ~ sex, data = com_panel6, cluster = pidp)
+kmsurv_sex <- survfit(Surv(time1, time2, event) ~ se_ee strate(sex), data = surv, cluster = pidp)
 summary(kmsurv_sex)
-plot(kmsurv_sex, xlab = "Time", ylab = "First Birth Probability by Sex")
-ggsurvplot(fit, data = kmsurv_sex)
-kmsurv_edu <- survfit(Surv(time1, time2, event) ~ edu_cat, data = com_panel6, cluster = pidp)
+plot(kmsurv_sex, xlab = "Time in months since first interview", ylab = "First Birth Probability by Sex")
+ggsurvplot(kmsurv_sex, size = 1,   # change line size
+           ylim = c(0.69,1),
+           palette = c("#E7B800", "#2E9FDF"),# custom color palettes
+           conf.int = TRUE,          # Add confidence interval
+          # pval = TRUE,              # Add p-value
+           risk.table = TRUE,        # Add risk table
+           risk.table.col = "strata",# Risk table color by groups
+           legend.labs =
+             c("Male", "Female"),    # Change legend labels
+           risk.table.height = 0.25, # Useful to change when you have multiple groups
+           ggtheme = theme_bw()      # Change ggplot2 theme 
+           ) + labs(caption = "Survival probaility cut at 0.7")
+
+
+kmsurv_edu <- survfit(Surv(time1, time2, event) ~ strata(edu_cat) + se_ee, data = surv, cluster = pidp)
 summary(kmsurv_edu)
 plot(kmsurv_edu, xlab = "Time", ylab = "First Birth Probability by Education")
+ggsurvplot(kmsurv_edu, size = 1,   # change line size
+           ylim = c(0.6,1),
+           # palette = c("#E7B800", "#2E9FDF"),# custom color palettes
+           conf.int = TRUE,          # Add confidence interval
+           # pval = TRUE,              # Add p-value
+           risk.table = TRUE,        # Add risk table
+           risk.table.col = "strata",# Risk table color by groups
+           legend.labs =
+           c("High", "Low", "Medium", "Unknown"),    # Change legend labels
+           risk.table.height = 0.4, # Useful to change when you have multiple groups
+           ggtheme = theme_bw()      # Change ggplot2 theme 
+) + labs(caption = "Survival probaility cut at 0.6") #+
+  # ggsave("cox_edu.png")
 
 mcoxph <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat, data = msurv, cluster = pidp, method = "breslow")
 summary(mcoxph)
@@ -162,6 +188,36 @@ summary(fcoxph)
 
 survfit(Surv(time1, time2, event) ~ 1, data = com_panel6, cluster = pidp)
 
+#Graph to look at the age of first birth conception
+agetest <- surv %>% 
+  dplyr::select(sex, agemn, event) %>% 
+  mutate(age = agemn/12) %>% 
+  filter(event == 1) %>% 
+  arrange(age) %>% 
+  group_by(age) %>% 
+  add_tally() %>% 
+  mutate(sex = as.factor(sex))
+
+str(agetest)
+
+
+agetest %>% 
+  mutate(sex = recode(sex,
+                             "1" = "Men",
+                             "2" = "Wormen",)) %>% 
+  ggplot(aes(x = age, y= n, group = sex, color = sex)) +
+  geom_smooth() +
+ # geom_label(group_by(age) %>% filter(x == max(x)), aes(label = sprintf('%0.2f', y)), hjust = -0.5) +
+  ylim(0, 17) +
+  scale_fill_brewer(palette = "Dark2") +
+  theme(aspect.ratio = 1) +
+  labs(color = "Sex") +
+  xlab("Age of conception of first child") + 
+  ylab("Count") +
+  ggtitle("Age of First birth", subtitle =  "UKHLS = Measured 9 months before first birth") +
+  #facet_wrap(~sex) +
+  ggsave("surv_age_fb.png")
+  
 
 ###########################################################################
 # Couple data set ---------------------------------------------------------
