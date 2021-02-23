@@ -3,6 +3,9 @@
 #Last Updated: 22.02.2021
 
 # install.packages("zoo")
+# install.packages("survminer")
+if(!require(devtools)) install.packages("devtools")
+devtools::install_github("kassambara/survminer", build_vignettes = FALSE)
 
 library(data.table)
 library(padr)
@@ -12,6 +15,8 @@ library(lubridate)
 library(arsenal)
 library(zoo)
 library(survival)
+library(survminer)
+
 
 #the first task is filling in missing interview dates from missing internal waves
 #This is probably best accomplished by simply picking the month halfway between the existing waves
@@ -40,6 +45,7 @@ enddate4 <-
   rename("startdate" = "intdate")
 
 com_panel2 <- com_panel %>% 
+  mutate(imp = ifelse(is.na(dvage), 1, 0)) %>% 
   left_join(., enddate4, by = c("pidp", "wave")) %>% 
   filter(fwtest >= 0, lwtest >= 0)%>% #removes rows before the first int or after the last
   # unite(intdate, c(intdatm_dv, intdaty_dv), sep = "-") %>% #combines the mnth & yr var to make int dates
@@ -56,7 +62,7 @@ com_panel2 <- com_panel %>%
   ungroup() %>% 
   filter(fb_check == 0 | fb_check == 2) %>% #this variable takes the observed "anychild" and subtracts the binary "kdob oberseved" 1 = had child but no kdob or not had child but observed kdob
   filter(dvage <= 49) %>% 
-  dplyr::select(pidp, wave, kdob, sex, dvage, dob, racel_dv, gor_dv, ppid, jbsec, generation,
+  dplyr::select(pidp, wave, imp, kdob, sex, dvage, dob, racel_dv, gor_dv, ppid, jbsec, generation,
                 edu_cat, se_ee, finnow.imp, finfut.imp, startdate, enddate)
 
 
@@ -108,6 +114,9 @@ com_panel5 <- com_panel4 %>%
   mutate(agemn = round(agemn, digits = 0)) %>% 
   mutate(agesq = agemn*agemn)
   
+com_panel4 %>% 
+  ungroup() %>% 
+  count(gor_dv)
 
 str(com_panel5)
 ###########################################################################
@@ -120,19 +129,75 @@ com_panel6 <- com_panel5 %>%
   mutate(test = time2 - time1) %>% 
   mutate(test2 = ifelse(test <= 0, 1, 0)) %>% 
   ungroup() %>% 
-  mutate(time2 = test2 + time2)
+  mutate(time2 = test2 + time2) %>% 
+  dplyr::select(-test, -test2)
+
+#Save and load the combined individual data file as an RDS
+saveRDS(com_panel6, file = "surv.rds")
+surv <- file.choose()
+surv <- readRDS(surv)
+
+surv %>% 
+  count(racel_dv)
+
+msurv <- surv %>% #data set for men
+  filter(sex == 1)
+
+fsurv <- surv %>% #data set for women
+  filter(sex == 2)
 
 #Kaplan-Meier non-parametric analysis
-kmsurvival <- survfit(Surv(time1, time2, event) ~ 1, data = com_panel6, cluster = pidp)
-summary(kmsurvival)
-plot(kmsurvival, xlab = "Time", ylab = "First Birth Probability")
+kmsurv_sex <- survfit(Surv(time1, time2, event) ~ sex, data = com_panel6, cluster = pidp)
+summary(kmsurv_sex)
+plot(kmsurv_sex, xlab = "Time", ylab = "First Birth Probability by Sex")
+ggsurvplot(fit, data = kmsurv_sex)
+kmsurv_edu <- survfit(Surv(time1, time2, event) ~ edu_cat, data = com_panel6, cluster = pidp)
+summary(kmsurv_edu)
+plot(kmsurv_edu, xlab = "Time", ylab = "First Birth Probability by Education")
 
-coxph <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat, data = com_panel6, cluster = pidp, method = "breslow")
-summary(coxph)
+mcoxph <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat, data = msurv, cluster = pidp, method = "breslow")
+summary(mcoxph)
+fcoxph <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat, data = fsurv, cluster = pidp, method = "breslow")
+summary(fcoxph)
+
+survfit(Surv(time1, time2, event) ~ 1, data = com_panel6, cluster = pidp)
 
 
+###########################################################################
+# Couple data set ---------------------------------------------------------
+###########################################################################
+
+partnerid <- surv %>% 
+  dplyr::select(ppid, wave) %>% 
+  fill(ppid) %>% 
+  rename("pidp" = "ppid") %>% 
+  left_join(., com_panel, by = c("pidp", "wave"))%>% 
+  filter(!is.na(sex)) %>% 
+  dplyr::select(pidp, wave, sex, birthm, birthy, racel_dv,
+                jbsec, generation, edu_cat, se_ee, finnow.imp, finfut.imp) %>%
+  unite(dob, c(birthm, birthy), sep = "-") %>% #creates a dob
+  mutate(dob = parse_date_time(dob, "my")) %>% 
+  fill(racel_dv, generation) %>% 
+  rename_with(~ newnames[which(oldnames == .x)], .cols = oldnames)
 
 
+  oldnames = c("pidp", "wave", "sex", "dob", "racel_dv", "jbsec", "generation", 
+               "edu_cat", "se_ee", "finnow.imp", "finfut.imp")
+  newnames = c("ppid", "wave", "sexp", "dobp", "racel_dvp", "jbsecp", "generationp", 
+               "edu_catp", "se_eep", "finnow.impp", "finfut.impp")
+  
+couplesurv <- 
+  left_join(surv, partnerid, by = c("ppid", "wave")) %>% 
+  filter(!is.na(sexp)) %>% 
+  mutate(dobp = as.Date(dobp)) %>% 
+  mutate(agemnp = as.duration(dobp %--% startdate) / dmonths(1)) %>% 
+  mutate(agemnp = round(agemnp, digits = 0)) 
+
+fcouplesurv <- couplesurv %>% 
+  filter(sex == 2)
+
+couplecoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + se_eep + agemn + agemnp, data = couplesurv, cluster = pidp, method = "breslow")
+summary(couplecoxph)
 
 ##### Leftovers
 
