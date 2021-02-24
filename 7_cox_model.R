@@ -7,6 +7,7 @@
 # if(!require(devtools)) install.packages("devtools")
 # devtools::install_github("kassambara/survminer", build_vignettes = FALSE)
 # install.packages("survPen")
+# install.packages("flexsurv")
 
 library(data.table)
 library(padr)
@@ -18,6 +19,7 @@ library(zoo)
 library(survival)
 library(survminer)
 library(survPen)
+library(flexsurv)
 
 
 #the first task is filling in missing interview dates from missing internal waves
@@ -185,12 +187,36 @@ ggsurvplot(kmsurv_edu, size = 1,   # change line size
 ) + labs(caption = "Survival probaility cut at 0.6") #+
   # ggsave("cox_edu.png")
 
-coxph <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + pspline(jbsec, df = 23), data = surv, cluster = pidp, method = "breslow")
+coxph <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat, data = surv, cluster = pidp, method = "breslow")
 summary(coxph)
 fcoxph <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat, data = fsurv, cluster = pidp, method = "breslow")
 summary(fcoxph)
 
-survfit(Surv(time1, time2, event) ~ 1, data = com_panel6, cluster = pidp)
+survfit(Surv(time1, time2, event) ~ 1, data = surv, cluster = pidp)
+
+
+
+#Testing splines for jbsec
+spsurv <- surv %>% 
+  fill(jbsec, .direction = "downup") %>% 
+  mutate(jbsec = fct_relevel(jbsec, c("3 non-employed", "1 likely", "2 unlikely"))) %>%
+  mutate(edu_cat = fct_relevel(edu_cat, c("other", "high", "medium", "low"))) 
+
+
+# %>% 
+#   timeSplitter(by = .5,
+#                event_var = "status",
+#                event_start_status = "Alive",
+#                time_var = "time",
+#                time_related_vars = c("age", "year"))
+
+sp1 <- flexsurvreg(Surv(time1, time2, event) ~ jbsec, data = surv, k = 23, scale = "hazard")
+summary(sp1)
+
+coxph <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + ridge(jbsec), data = spsurv, cluster = pidp, method = "breslow")
+summary(coxph)
+cox.zph(coxph)
+
 
 #Graph to look at the age of first birth conception
 agetest <- surv %>% 
