@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 27.01.2021
-#Last Updated: 17.02.2021
+#Last Updated: 24.02.2021
 
 # install.packages("mice")
 
@@ -18,9 +18,9 @@ a_indresp %>%
 
 #Sorting out needed variables from indresp
 #Changes in these lists allow for much quick adding and subtracting variables
-even_wave_var <- c("sex", "birthm", "birthy", "dvage", "qfhigh_dv", "racel_dv", "gor_dv", "finfut", "finnow", "hhorig", "ppid", "intdatm_dv", "intdaty_dv")
+even_wave_var <- c("sex", "birthm", "birthy", "dvage", "qfhigh_dv", "racel_dv", "gor_dv", "finfut", "finnow", "hhorig", "ppid", "intdatm_dv", "intdaty_dv", "marstat_dv")
 
-odd_wave_var <- c("sex", "birthm", "birthy", "dvage", "qfhigh_dv", "racel_dv", "gor_dv", "finfut", "finnow", "hhorig", "jbsec", "ppid", "intdatm_dv", "intdaty_dv")
+odd_wave_var <- c("sex", "birthm", "birthy", "dvage", "qfhigh_dv", "racel_dv", "gor_dv", "finfut", "finnow", "hhorig", "jbsec", "ppid", "intdatm_dv", "intdaty_dv", "marstat_dv")
 
 #Add the wave prefix to the variable list
 w1_even_var <- paste0('a_', even_wave_var)
@@ -201,7 +201,7 @@ panel_all_sample <- all_sample %>%
     qfhigh_dv <= 6 ~ "high",
     qfhigh_dv <= 12 & qfhigh_dv >=7 ~ "medium",
     qfhigh_dv >=13 & qfhigh_dv <= 15 ~ "low")) %>% 
-  mutate(edu_cat = ifelse(is.na(edu_cat), "unknown", edu_cat)) #unknown edu_qf for people at 16, 96 or missing
+  mutate(edu_cat = ifelse(is.na(edu_cat), "other", edu_cat)) #other edu_qf for people at 16, 96 or missing
 
 # qfhigh_dv >= 16 & qfhigh_dv <= 0 ~ "unknown"
 
@@ -233,11 +233,6 @@ test_impute %>%
   ggplot(aes(se_ee)) +
   geom_histogram(binwidth = 0.05)
 
-#Save and load the combined individual data file as an RDS
-saveRDS(panel_all_sample_pji, file = "panel_all_sample_pji.rds")
-panel_all_sample_pji <- file.choose()
-panel_all_sample_pji <- readRDS(panel_all_sample_pji)
-
 
 ###########################################################################
 # Adding in the PJI -------------------------------------------------------
@@ -262,41 +257,52 @@ panel_all_sample_pji <-
   fill(lwintvd_dv, .direction = "up") %>% 
   mutate(lwtest = lwintvd_dv - wave) #Creates a variable where negative numbers symbolize waves after the respondents LW
   
+#Save and load the combined individual data file as an RDS
+saveRDS(panel_all_sample_pji, file = "panel_all_sample_pji.rds")
+panel_all_sample_pji <- file.choose()
+panel_all_sample_pji <- readRDS(panel_all_sample_pji)
 
-panel_all_sample_pji %>% 
-  count(jbsec)
+#Mutating "jbsec" to work as a variable
+#Creating three categories: 1. Likely 2. Unlikely 3. Non-employed
 
-panel_all_sample_pji %>% 
-  count(finfut)
 
-panel_all_sample_pji %>% 
-  count(finnow)
-
-panel_all_sample_pji%>% 
-  mutate(jbsec = as.factor(jbsec)) %>% 
-  filter(fwtest >= 0, lwtest >= 0) %>%
-  filter(wave == 2 | wave == 4 | wave == 6 | wave == 8 | wave == 10) %>% 
+panel_all_sample_pji2 <- panel_all_sample_pji %>% 
+  mutate(jbsec = ifelse(jbsec == 2 | jbsec == 1, 1, ifelse(jbsec >=3, 2, 3))) %>% 
   mutate(jbsec = recode(jbsec,
-                             "1" = "1 very likely",
-                             "2" = "2 likely",
-                             "3" = "3 unlikely",
-                             "4" = "4 very unlikely",
-                             "-1" = "-1 don't know",
-                             "-8" = "-8 inapplicable",
-                              "-7" = "NA",
-                              "-2" = "NA",
-                                "-9" = "NA")) %>% 
-  mutate(jbsec = fct_relevel(jbsec, c( "1 very likely",
-                                                  "2 likely",
-                                                  "3 unlikely",
-                                                  "4 very unlikely",
-                                                  "-1 don't know",
-                                                  "-8 inapplicable"))) %>% 
-  # filter(edu_cat == "unknown") %>% 
-  # dplyr::filter(!is.na(w10)) %>% 
-  ggplot(aes(wave, fill = jbsec)) +
-  geom_bar()+
-  theme(aspect.ratio = 1)
+                        "1" = "1 likely",
+                        "2" = "2 unlikely",
+                        "3" = "3 non-employed"))
+
+panel_all_sample_pji2 %>% 
+  ungroup() %>% 
+  count(jbsec)  
+
+####This was used to look at the situation of the jbsec in the sample
+# panel_all_sample_pji%>% 
+#   mutate(jbsec = as.factor(jbsec)) %>% 
+#   filter(fwtest >= 0, lwtest >= 0) %>%
+#   filter(wave == 2 | wave == 4 | wave == 6 | wave == 8 | wave == 10) %>% 
+#   mutate(jbsec = recode(jbsec,
+#                              "1" = "1 very likely",
+#                              "2" = "2 likely",
+#                              "3" = "3 unlikely",
+#                              "4" = "4 very unlikely",
+#                              "-1" = "-1 don't know",
+#                              "-8" = "-8 inapplicable",
+#                               "-7" = "NA",
+#                               "-2" = "NA",
+#                                 "-9" = "NA")) %>% 
+#   mutate(jbsec = fct_relevel(jbsec, c( "1 very likely",
+#                                                   "2 likely",
+#                                                   "3 unlikely",
+#                                                   "4 very unlikely",
+#                                                   "-1 don't know",
+#                                                   "-8 inapplicable"))) %>% 
+#   # filter(edu_cat == "unknown") %>% 
+#   # dplyr::filter(!is.na(w10)) %>% 
+#   ggplot(aes(wave, fill = jbsec)) +
+#   geom_bar()+
+#   theme(aspect.ratio = 1)
 
 ###########################################################################
 # Impute missing finnow ---------------------------------------------------
@@ -310,7 +316,7 @@ fb_check <- first_born %>%
 
 #START WITH FINNOW
 #creates a wide format for the "finnow" variable
-wide_finnow <- panel_all_sample_pji %>% 
+wide_finnow <- panel_all_sample_pji2 %>% 
   dplyr::select(pidp, wave, finnow) %>% 
   # mutate(finnow = as.factor(finnow)) %>% 
   mutate(wn = "w") %>% 
@@ -331,6 +337,7 @@ md.pattern(wide_finnow, plot = FALSE) #looks at the pattern of missing values
 flux(wide_finnow)[,1:3]
 fluxplot(wide_finnow) #Creates a plot to look at influx and outflux coefficents
 
+#First Imputation of finnow
 imp <-  mice(wide_finnow, m = 5, method = ("polr"))
 densityplot(imp)
 fit <- with(imp, glm(sex ~ w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 + w9 + w10, family = binomial(link = "logit")))
@@ -378,7 +385,7 @@ imp_finnow %>%
   scale_fill_brewer(palette = "Dark2") +
   theme(aspect.ratio = 1)
 
-panel_all_sample_pji %>% 
+panel_all_sample_pji2 %>% 
   dplyr::filter(!is.na(finnow) | finnow > 0) %>% 
   ggplot(aes(finnow)) +
   geom_bar() +
@@ -388,7 +395,7 @@ panel_all_sample_pji %>%
 
 #SECOND FINFUT
 #creates a wide format for the "finfut" variable
-wide_finfut <- panel_all_sample_pji %>% 
+wide_finfut <- panel_all_sample_pji2 %>% 
   dplyr::select(pidp, wave, finfut) %>% 
   # mutate(finfut = as.factor(finfut)) %>% 
   mutate(wn = "w") %>% 
@@ -445,11 +452,12 @@ imp_finfut <- test_finfut %>%
                       "3" = "About the same"))
 
 
+
 ###########################################################################
 # Adding imputed variables ------------------------------------------------
 ###########################################################################
 
-paspji_imp <- panel_all_sample_pji %>% 
+paspji_imp <- panel_all_sample_pji2 %>% 
   left_join(., imp_finnow, by = c("pidp", "wave")) %>% 
   left_join(., imp_finfut, by = c("pidp", "wave")) %>% 
   mutate(fb = ifelse(is.na(kdob), 0, 1)) %>% 
@@ -458,15 +466,16 @@ paspji_imp <- panel_all_sample_pji %>%
   fill(birthm, .direction = "down") %>% #imputation of non-time varying var
   fill(birthm, .direction = "up") %>% 
   fill(birthy, .direction = "down") %>% #best to calculate age after transforming to monthly
-  fill(birthy, .direction = "up") 
+  fill(birthy, .direction = "up") %>% 
+  fill(marstat_dv, .direction = "down") %>% #best to calculate age after transforming to monthly
+  fill(marstat_dv, .direction = "up") 
 
-%>% 
-
-paspji_imp %>% 
-  ungroup() %>% 
-  filter(wave == 2 | wave == 4 | wave == 6 | wave == 8 | wave == 10) %>% 
-  filter(fwtest >= 0, lwtest >= 0) %>% 
-  count(jbsec)
+#Leftover test for dealing with jbsec
+# paspji_imp %>% 
+#   ungroup() %>% 
+#   filter(wave == 2 | wave == 4 | wave == 6 | wave == 8 | wave == 10) %>% 
+#   filter(fwtest >= 0, lwtest >= 0) %>% 
+#   count(jbsec)
 
 #Save and load the combined individual data file as an RDS
 saveRDS(paspji_imp, file = "com_panel.rds")

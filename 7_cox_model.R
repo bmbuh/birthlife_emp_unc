@@ -1,11 +1,12 @@
 #Coded by: Brian Buh
 #Started on: 17.02.2021
-#Last Updated: 23.02.2021
+#Last Updated: 24.02.2021
 
 # install.packages("zoo")
 # install.packages("survminer")
 # if(!require(devtools)) install.packages("devtools")
 # devtools::install_github("kassambara/survminer", build_vignettes = FALSE)
+# install.packages("survPen")
 
 library(data.table)
 library(padr)
@@ -16,6 +17,7 @@ library(arsenal)
 library(zoo)
 library(survival)
 library(survminer)
+library(survPen)
 
 
 #the first task is filling in missing interview dates from missing internal waves
@@ -61,8 +63,8 @@ com_panel2 <- com_panel %>%
   fill(generation) %>% 
   ungroup() %>% 
   filter(fb_check == 0 | fb_check == 2) %>% #this variable takes the observed "anychild" and subtracts the binary "kdob oberseved" 1 = had child but no kdob or not had child but observed kdob
-  filter(dvage <= 49) %>% 
-  dplyr::select(pidp, wave, imp, kdob, sex, dvage, dob, racel_dv, gor_dv, ppid, jbsec, generation,
+  # filter(case_when(sex == 1 ~ age_start <= 50, sex == 2 ~ age_start <= 45) %>% 
+  dplyr::select(pidp, wave, imp, kdob, sex, dvage, dob, racel_dv, gor_dv, ppid, marstat_dv, jbsec, generation,
                 edu_cat, se_ee, finnow.imp, finfut.imp, startdate, enddate)
 
 
@@ -88,10 +90,14 @@ com_panel4 <- com_panel3 %>%
   group_by(pidp) %>% 
   mutate(rollgap = cumsum(gap)) %>% 
   mutate(condate = as.Date(kdob %m-% months(9))) %>% 
-  mutate(fbgap = as.duration(startdate %--% condate) / dmonths(1))
+  mutate(fbgap = as.duration(startdate %--% condate) / dmonths(1)) %>% 
+  mutate(test = ifelse(is.na(enddate), 1, 0)) %>% 
+  fill(enddate) %>% 
+  mutate(enddate = ifelse(test == 1, enddate %m+% months(1), enddate)) %>% 
+  mutate(enddate = as.Date(enddate))
 
 com_panel5 <- com_panel4 %>% 
-  mutate(condate = ifelse(enddate <= condate, NA, condate)) %>% 
+  mutate(condate = ifelse(enddate <= condate, NA, condate)) %>% #The next several lines is done to remove waves after first birth
   mutate(condate = as.Date(condate)) %>% 
   mutate(condate = ifelse(is.na(condate), 1900-01-01, condate)) %>% 
   mutate(condate = as.Date(condate)) %>% 
@@ -107,18 +113,15 @@ com_panel5 <- com_panel4 %>%
   mutate(time1 = rollgap2 - gap2) %>% 
   rename("time2" = "rollgap2") %>% 
   mutate(event = ifelse(condate == enddate2, 1, 0)) %>% 
-  dplyr::select(-gap2, -cut, -enddate, -gap, -rollgap, -fbgap, -condate) %>% 
+  dplyr::select(-gap2, -cut, -enddate, -gap, -rollgap, -fbgap, -condate, -test) %>% 
   rename("enddate" = "enddate2") %>% 
   mutate(dob = as.Date(dob)) %>% 
   mutate(agemn = as.duration(dob %--% startdate) / dmonths(1)) %>% 
   mutate(agemn = round(agemn, digits = 0)) %>% 
-  mutate(agesq = agemn*agemn)
-  
-com_panel4 %>% 
-  ungroup() %>% 
-  count(gor_dv)
+  mutate(agesq = agemn*agemn) %>% 
+  filter(case_when(sex == 1 ~ agemn <= 600, sex == 2 ~ agemn <= 540)) #filters men over 50 and women over 45
 
-str(com_panel5)
+  
 ###########################################################################
 # Cox Prop Haz Model ------------------------------------------------------
 ###########################################################################
@@ -138,7 +141,7 @@ surv <- file.choose()
 surv <- readRDS(surv)
 
 surv %>% 
-  count(racel_dv)
+  count(marstat_dv)
 
 msurv <- surv %>% #data set for men
   filter(sex == 1)
@@ -147,11 +150,11 @@ fsurv <- surv %>% #data set for women
   filter(sex == 2)
 
 #Kaplan-Meier non-parametric analysis
-kmsurv_sex <- survfit(Surv(time1, time2, event) ~ se_ee strate(sex), data = surv, cluster = pidp)
+kmsurv_sex <- survfit(Surv(time1, time2, event) ~ se_ee + strata(sex), data = surv, cluster = pidp)
 summary(kmsurv_sex)
 plot(kmsurv_sex, xlab = "Time in months since first interview", ylab = "First Birth Probability by Sex")
 ggsurvplot(kmsurv_sex, size = 1,   # change line size
-           ylim = c(0.69,1),
+           ylim = c(0.69,1) ,
            palette = c("#E7B800", "#2E9FDF"),# custom color palettes
            conf.int = TRUE,          # Add confidence interval
           # pval = TRUE,              # Add p-value
@@ -162,6 +165,7 @@ ggsurvplot(kmsurv_sex, size = 1,   # change line size
            risk.table.height = 0.25, # Useful to change when you have multiple groups
            ggtheme = theme_bw()      # Change ggplot2 theme 
            ) + labs(caption = "Survival probaility cut at 0.7")
+
 
 
 kmsurv_edu <- survfit(Surv(time1, time2, event) ~ strata(edu_cat) + se_ee, data = surv, cluster = pidp)
@@ -181,8 +185,8 @@ ggsurvplot(kmsurv_edu, size = 1,   # change line size
 ) + labs(caption = "Survival probaility cut at 0.6") #+
   # ggsave("cox_edu.png")
 
-mcoxph <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat, data = msurv, cluster = pidp, method = "breslow")
-summary(mcoxph)
+coxph <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + pspline(jbsec, df = 23), data = surv, cluster = pidp, method = "breslow")
+summary(coxph)
 fcoxph <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat, data = fsurv, cluster = pidp, method = "breslow")
 summary(fcoxph)
 

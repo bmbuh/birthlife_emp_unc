@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 25.01.2020
-#Last Updated: 11.02.2021
+#Last Updated: 24.02.2021
 
 # install.packages("padr")
 # install.packages("data.table")
@@ -130,7 +130,8 @@ pji_sample <- emp_fb_ukhls %>%
   #mutate(age_start = (dob %--% start_date)/dyears(1)) %>%  #This is the process to remove respondents less than 16 [lcb]
   # filter(age_start >= 16) %>% #this filter is too early! This needs to be down when we have monthly records or we remove whole spells!
   mutate(lagged_kdob = kdob - dmonths(8)) %>% 
-  mutate(age49 = dob + dyears(49)) %>% 
+  mutate(age45f = dob + dyears(45)) %>% 
+  mutate(age50m = dob + dyears(50)) %>% 
   rename("sex" = "sex.x") %>% 
   select(-sex.y) %>% 
   mutate(childcheck = ifelse(is.na(kdob), 1, 0)) %>% #This is to remove people who have a child but no listed kdob
@@ -149,10 +150,10 @@ pji_sample<- readRDS(pji_sample)
 pji1 <- transform(pji_sample, from = as.Date(start_date), to = as.Date(end_date), lagfb = as.Date(lagged_kdob))
 
 pji2 <- pji1 %>%
-  dplyr::select(pidp, unemp, to, from, lagfb, age49, sex, hhorig, dob, kdob)
+  dplyr::select(pidp, unemp, to, from, lagfb, age45f, age50m, sex, hhorig, dob, kdob)
 
 dt <- data.table(pji2)
-pji3 <- dt[, list(pidp, unemp, lagfb, age49, sex, hhorig, dob, kdob, date = seq(from, to, by = "month")), by = 1:nrow(dt)] %>% 
+pji3 <- dt[, list(pidp, unemp, lagfb, age45f, age50m, sex, hhorig, dob, kdob, date = seq(from, to, by = "month")), by = 1:nrow(dt)] %>% 
   mutate(age_start = (dob %--% date)/dyears(1)) %>% 
   filter(age_start >= 16) 
 
@@ -168,7 +169,7 @@ pji4 <- pji3 %>%
   # mutate(diff_age = date - age49) %>% 
   distinct(pidp, date, .keep_all = TRUE) %>% 
   filter(date <= lagfb | is.na(lagfb)) %>% 
-  filter(age_start <= 49)
+  filter(case_when(sex == 1 ~ age_start <= 50, sex == 2 ~ age_start <= 45)) #Updated 24.02.21 to change cut off ages for men and women based on ONS Stats
   #filter(diff_fb <= 1| is.na(diff_fb)) %>% 
   # mutate(fb_check = diff_fb == 0) %>% 
   # filter(diff_age <= 0 | is.na(diff_age))%>% 
@@ -220,7 +221,7 @@ write_dta(panel_pji, "panel_pji.dta")
 # Import PJI Complete -----------------------------------------------------
 ###########################################################################
 
-
+#Last update 24.02.2021
 pji_complete <- read_dta("S:/R Files/Emp_Unc_Fertility_Birthlife/panel_pji_run.dta")
 
 
@@ -241,15 +242,17 @@ pji_var <- pji_complete %>%
   mutate(fbyes = recode(fbyes,
                       "0" = "No birth",
                       "1" = "Birth")) %>% 
-  mutate(year49 = year(age49))
+  mutate(year45f = year(age45f)) %>% 
+  mutate(year50m = year(age50m))
   # mutate(fbyear = ifelse(is.na(fbyear), 3000, fbyear))
 
+###Why did I do this?
+# pji_var_na <- pji_var %>% 
+#   filter(is.na(fbyear)) %>% 
+#   mutate(year49 = year(age49)) %>% 
+#   filter(year49 >= 2008)
 
-pji_var_na <- pji_var %>% 
-  filter(is.na(fbyear)) %>% 
-  mutate(year49 = year(age49)) %>% 
-  filter(year49 >= 2008)
-
+#Note: this needs to be updated if rerun to reflect change in difference in age limit of men and women
 #This is a test to check for number of newborns
 test_pji_var <- pji_var %>% 
   mutate(year49 = year(age49)) %>% 
@@ -269,7 +272,7 @@ test_pji_var %>%
 
 #Histogram of PJI of sample (truncated)
 pji_var %>% 
-  dplyr::filter(fbyear >= 2008 | is.na(fbyear), year49 >= 2008, se_ee != 0) %>% 
+  dplyr::filter(fbyear >= 2008 | is.na(fbyear), year45f >= 2008, year50m >= 2008, se_ee != 0) %>% 
   ggplot(aes(se_ee, fill = fbyes)) +
   geom_histogram(binwidth = 0.05) +
   scale_fill_brewer(palette = "Dark2") +
