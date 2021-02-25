@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 17.02.2021
-#Last Updated: 24.02.2021
+#Last Updated: 25.02.2021
 
 # install.packages("zoo")
 # install.packages("survminer")
@@ -8,6 +8,7 @@
 # devtools::install_github("kassambara/survminer", build_vignettes = FALSE)
 # install.packages("survPen")
 # install.packages("flexsurv")
+# install.packages("coxme")
 
 library(data.table)
 library(padr)
@@ -20,6 +21,7 @@ library(survival)
 library(survminer)
 library(survPen)
 library(flexsurv)
+library(coxme)
 
 
 #the first task is filling in missing interview dates from missing internal waves
@@ -200,8 +202,18 @@ survfit(Surv(time1, time2, event) ~ 1, data = surv, cluster = pidp)
 spsurv <- surv %>% 
   fill(jbsec, .direction = "downup") %>% 
   mutate(jbsec = fct_relevel(jbsec, c("3 non-employed", "1 likely", "2 unlikely"))) %>%
-  mutate(edu_cat = fct_relevel(edu_cat, c("other", "high", "medium", "low"))) 
+  mutate(edu_cat = fct_relevel(edu_cat, c("other", "high", "medium", "low"))) %>% 
+  mutate(jbsec2 = as.numeric(jbsec))
 
+summary(spsurv)
+
+table(spsurv$event, spsurv$finfut.imp)
+survaov <- aov(event ~ finnow.imp, data = spsurv)
+summary(survaov)
+
+table(spsurv$finnow.imp, spsurv$finfut.imp)
+chisqsurv <- chisq.test(table(spsurv$finnow.imp, spsurv$finfut.imp))
+summary(chisqsurv)
 
 # %>% 
 #   timeSplitter(by = .5,
@@ -213,10 +225,24 @@ spsurv <- surv %>%
 sp1 <- flexsurvreg(Surv(time1, time2, event) ~ jbsec, data = surv, k = 23, scale = "hazard")
 summary(sp1)
 
-coxph <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + ridge(jbsec), data = spsurv, cluster = pidp, method = "breslow")
-summary(coxph)
-cox.zph(coxph)
+#This model uses a ridge regression on jbsec 
+#The ridge regression pushes the likelihood estimator towards zero(aka making the known effect of jbsec shrink from the measurement)
+coxphridge <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + ridge(jbsec, theta = 23, scale = TRUE), data = spsurv, cluster = pidp, method = "breslow")
+summary(coxphridge)
+cox.zph(coxphridge)
 
+#Frality function allows for adding a simple random effect to a term
+coxphfrailty <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + frailty.gaussian(jbsec2), data = spsurv, cluster = pidp, method = "breslow")
+summary(coxphfrailty)
+cox.zph(coxphfrailty)
+
+coxphpsp<- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + pspline(jbsec2), data = spsurv, cluster = pidp, method = "breslow")
+summary(coxphpsp)
+cox.zph(coxphpsp)
+
+#this allows for mixed-effects modeling. The variable in the bracket (this case jbsec) is used to create the mixed effects (partial pooling effect)
+coxme <- coxme(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + (1 | jbsec), data = spsurv)
+summary(coxme)
 
 #Graph to look at the age of first birth conception
 agetest <- surv %>% 
