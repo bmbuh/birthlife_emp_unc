@@ -18,9 +18,9 @@ a_indresp %>%
 
 #Sorting out needed variables from indresp
 #Changes in these lists allow for much quick adding and subtracting variables
-even_wave_var <- c("sex", "birthm", "birthy", "dvage", "qfhigh_dv", "racel_dv", "gor_dv", "finfut", "finnow", "hhorig", "ppid", "intdatm_dv", "intdaty_dv", "marstat_dv")
+even_wave_var <- c("sex", "birthm", "birthy", "dvage", "qfhigh_dv", "racel_dv", "gor_dv", "finfut", "finnow", "hhorig", "ppid", "intdatm_dv", "intdaty_dv", "marstat_dv", "jbstat")
 
-odd_wave_var <- c("sex", "birthm", "birthy", "dvage", "qfhigh_dv", "racel_dv", "gor_dv", "finfut", "finnow", "hhorig", "jbsec", "ppid", "intdatm_dv", "intdaty_dv", "marstat_dv")
+odd_wave_var <- c("sex", "birthm", "birthy", "dvage", "qfhigh_dv", "racel_dv", "gor_dv", "finfut", "finnow", "hhorig", "jbsec", "ppid", "intdatm_dv", "intdaty_dv", "marstat_dv", "jbstat")
 
 #Add the wave prefix to the variable list
 w1_even_var <- paste0('a_', even_wave_var)
@@ -120,6 +120,27 @@ ind_sample <-
 str(ind_sample)  
 
 
+#adding partnership/employment details
+ind_sample2 <- ind_sample %>% 
+  dplyr::select(ppid, wave) %>% 
+  rename("pidp" = "ppid") %>% 
+  filter(pidp >= 0) %>% 
+  left_join(., ind_sample, by = c("pidp", "wave")) %>% 
+  dplyr::select(pidp, wave, jbstat) %>% 
+  mutate(parjbstat = ifelse(is.na(jbstat), "unknown", ifelse(jbstat == 2 | jbstat == 1, "employed", "non-employed" ))) %>% 
+  # 1 = employed, 2 = non-employed, 3 = unknown
+  rename("ppid" = "pidp") %>% 
+  dplyr::select(ppid, wave, parjbstat)
+
+ind_sample3 <- 
+  left_join(ind_sample, ind_sample2, by = c("ppid", "wave")) %>% 
+  mutate(parjbstat = ifelse(is.na(parjbstat), "unknown", parjbstat)) %>% 
+  mutate(marstat = ifelse(marstat_dv == 1, "married", ifelse(marstat_dv == 2, "cohab", "single"))) %>% 
+  unite(combo, marstat, parjbstat, sep = "-", remove = FALSE)
+
+ind_sample3 %>% 
+  count(combo)
+
 ###########################################################################
 # Variables from the xwavedat file ----------------------------------------
 ###########################################################################
@@ -128,9 +149,12 @@ x_sample2 <- xwave %>% #not to be confused with x_sample located in scripts 2 an
   dplyr::select(pidp, hhorig, generation, lwenum_dv, fwenum_dv, fwintvd_dv, lwintvd_dv, anychild_dv ) %>% 
   filter(hhorig <= 2 | hhorig == 7) %>% 
   dplyr::select(-hhorig)
+
+
   
 all_sample <- 
-  left_join(ind_sample,x_sample2, by = "pidp")
+  left_join(ind_sample3,x_sample2, by = "pidp")
+  
 
 
 #Save and load the combined individual data file as an RDS
@@ -205,33 +229,33 @@ panel_all_sample <- all_sample %>%
 
 # qfhigh_dv >= 16 & qfhigh_dv <= 0 ~ "unknown"
 
-str(panel_all_sample)
-
-panel_all_sample %>% 
-  count(finnow)
-
-#Test for seeing if there is a loss of first borns
-test_panel_all_sample <- panel_all_sample %>% 
-  mutate(year = year(kdob)) %>% 
-  dplyr::select(pidp, year, wave) %>% 
-  mutate(waves = "wave") %>% 
-  unite(names, waves, wave, remove = TRUE) %>% 
-  pivot_wider(names_from = names, values_from = year) %>% 
-  mutate(fb = ifelse(wave_1 > 0, 1, 0))
-
-count_panel_all_sample <- test_panel_all_sample %>% 
-  filter(wave_1 >= 2008 | is.na(wave_1)) %>% 
-  count(wave_1)
-
-%>% 
-  relocate("edu_cat", .after = "qfhigh_dv")
-
-%>% 
-  mutate(edu_cat = fct_relevel(edu_cat, c("high", "medium", "low"))) # this is in order to keep graphs in the correct high, medium, low, unknown order
-
-test_impute %>% 
-  ggplot(aes(se_ee)) +
-  geom_histogram(binwidth = 0.05)
+# str(panel_all_sample)
+# 
+# panel_all_sample %>% 
+#   count(finnow)
+# 
+# #Test for seeing if there is a loss of first borns
+# test_panel_all_sample <- panel_all_sample %>% 
+#   mutate(year = year(kdob)) %>% 
+#   dplyr::select(pidp, year, wave) %>% 
+#   mutate(waves = "wave") %>% 
+#   unite(names, waves, wave, remove = TRUE) %>% 
+#   pivot_wider(names_from = names, values_from = year) %>% 
+#   mutate(fb = ifelse(wave_1 > 0, 1, 0))
+# 
+# count_panel_all_sample <- test_panel_all_sample %>% 
+#   filter(wave_1 >= 2008 | is.na(wave_1)) %>% 
+#   count(wave_1)
+# 
+# %>% 
+#   relocate("edu_cat", .after = "qfhigh_dv")
+# 
+# %>% 
+#   mutate(edu_cat = fct_relevel(edu_cat, c("high", "medium", "low"))) # this is in order to keep graphs in the correct high, medium, low, unknown order
+# 
+# test_impute %>% 
+#   ggplot(aes(se_ee)) +
+#   geom_histogram(binwidth = 0.05)
 
 
 ###########################################################################
@@ -483,3 +507,10 @@ com_panel <- file.choose()
 com_panel <- readRDS(com_panel)
 
 
+#shortcut for adding in partner details without rerunning imputation
+#not necessary if reruning the entire code with imputations
+# parjbstat <- all_sample %>% 
+#   dplyr::select(pidp, wave, marstat, parjbstat, combo) 
+# 
+# com_panel <-com_panel %>% 
+#   left_join(., parjbstat, by = c("pidp", "wave"))

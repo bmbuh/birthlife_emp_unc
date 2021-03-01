@@ -9,6 +9,7 @@
 # install.packages("survPen")
 # install.packages("flexsurv")
 # install.packages("coxme")
+# install.packages("texreg")
 
 library(data.table)
 library(padr)
@@ -22,6 +23,8 @@ library(survminer)
 library(survPen)
 library(flexsurv)
 library(coxme)
+library(stargazer)
+library(texreg)
 
 
 #the first task is filling in missing interview dates from missing internal waves
@@ -65,12 +68,15 @@ com_panel2 <- com_panel %>%
   fill(gor_dv) %>% 
   fill(racel_dv) %>% 
   fill(generation) %>% 
+  fill(combo) %>% 
   ungroup() %>% 
   filter(fb_check == 0 | fb_check == 2) %>% #this variable takes the observed "anychild" and subtracts the binary "kdob oberseved" 1 = had child but no kdob or not had child but observed kdob
   # filter(case_when(sex == 1 ~ age_start <= 50, sex == 2 ~ age_start <= 45) %>% 
-  dplyr::select(pidp, wave, imp, kdob, sex, dvage, dob, racel_dv, gor_dv, ppid, marstat_dv, jbsec, generation,
+  dplyr::select(pidp, wave, imp, kdob, sex, dvage, dob, racel_dv, gor_dv, ppid, marstat, parjbstat, combo, jbsec, generation,
                 edu_cat, se_ee, finnow.imp, finfut.imp, startdate, enddate)
 
+com_panel2 %>% 
+  count(combo)
 
 #In order to fill in start dates from missing waves
 #Calculated as the median point between the two waves
@@ -125,6 +131,9 @@ com_panel5 <- com_panel4 %>%
   mutate(agesq = agemn*agemn) %>% 
   filter(case_when(sex == 1 ~ agemn <= 600, sex == 2 ~ agemn <= 540)) #filters men over 50 and women over 45
 
+com_panel5 %>% 
+  ungroup() %>% 
+  count(combo)
   
 ###########################################################################
 # Cox Prop Haz Model ------------------------------------------------------
@@ -159,12 +168,12 @@ summary(kmsurv_sex)
 plot(kmsurv_sex, xlab = "Time in months since first interview", ylab = "First Birth Probability by Sex")
 ggsurvplot(kmsurv_sex, size = 1,   # change line size
            ylim = c(0.69,1) ,
-           palette = c("#E7B800", "#2E9FDF"),# custom color palettes
+           # palette = c("#E7B800", "#2E9FDF"),# custom color palettes
            conf.int = TRUE,          # Add confidence interval
           # pval = TRUE,              # Add p-value
            risk.table = TRUE,        # Add risk table
            risk.table.col = "strata",# Risk table color by groups
-           legend.labs =
+           # legend.labs =
              c("Male", "Female"),    # Change legend labels
            risk.table.height = 0.25, # Useful to change when you have multiple groups
            ggtheme = theme_bw()      # Change ggplot2 theme 
@@ -189,14 +198,30 @@ ggsurvplot(kmsurv_edu, size = 1,   # change line size
 ) + labs(caption = "Survival probaility cut at 0.6") #+
   # ggsave("cox_edu.png")
 
-coxph <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat, data = surv, cluster = pidp, method = "breslow")
+coxph <- coxph(formula = Surv(time1, time2, event) ~ strata(sex) + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + combo, data = surv, cluster = pidp, method = "breslow")
 summary(coxph)
-fcoxph <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat, data = fsurv, cluster = pidp, method = "breslow")
+fcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + ridge(jbsec), data = fsurv, cluster = pidp, method = "breslow")
 summary(fcoxph)
+mcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat, data = msurv, cluster = pidp, method = "breslow")
+summary(mcoxph)
+fparcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + combo, data = fsurv, cluster = pidp, method = "breslow")
+summary(fcoxph)
+mparcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + combo, data = msurv, cluster = pidp, method = "breslow")
+summary(mcoxph)
+
 
 survfit(Surv(time1, time2, event) ~ 1, data = surv, cluster = pidp)
 
-
+stargazer(fcoxph, fparcoxph, mcoxph, mparcoxph,
+          # title = "Ordinal logistic regression",
+          # dep.var.caption = "Change in number of intended children: Wave 5 - 10",
+          # dep.var.labels = c("Less intended", "Same intended", "More intended"),
+          # column.labels = c(),
+          # covariate.labels = c("Had a child", "Ratio of waves spent employed", "Ratio waves with positive financial outlook",
+          #                      "Age", "Stayed single", "Stayed married", "Got Married", "Medium education", "High education"),
+          notes.label = "Significance levels",
+          type = "html",
+          out = "test_stargazer.doc")
 
 #Testing splines for jbsec
 spsurv <- surv %>% 
@@ -205,7 +230,36 @@ spsurv <- surv %>%
   mutate(edu_cat = fct_relevel(edu_cat, c("other", "high", "medium", "low"))) %>% 
   mutate(jbsec2 = as.numeric(jbsec))
 
-summary(spsurv)
+mspsurv <- spsurv %>% #data set for men
+  filter(sex == 1)
+
+fspsurv <- spsurv %>% #data set for women
+  filter(sex == 2)
+
+fspcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + + agemn + agesq + edu_cat, data = fspsurv, cluster = pidp, method = "breslow")
+summary(fspcoxph)
+mspcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + + agemn + agesq + edu_cat, data = mspsurv, cluster = pidp, method = "breslow")
+summary(mspcoxph)
+fspparcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + + agemn + agesq + edu_cat + combo, data = fspsurv, cluster = pidp, method = "breslow")
+summary(fspparcoxph)
+mspparcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + + agemn + agesq + edu_cat + combo, data = mspsurv, cluster = pidp, method = "breslow")
+summary(mspparcoxph)
+
+#The stargazer package cannot handle cox.penal results so the texreg package needs to be used
+htmlreg(list(fspcoxph, fspparcoxph, mspcoxph, mspparcoxph),
+        file = "ridge.test.html",
+        single.row = TRUE,
+        custom.model.names = c("Female", "Female", "Male", "Male"),
+        custom.coef.names = c("PJI", "Pres. Fin. 'Doing alright'", "Pres. Fin. 'Just getting by'", "Pres. Fin. 'Finding it quite difficult'","Pres. Fin. 'Finding it very difficult'",
+                               "Fut. Fin. 'Better off'", "Fut. Fin. 'Worse off'",
+                              "Job security", 
+                              "Age, in months", "Age Squared", 
+                              "Edu. High", "Edu. Medium", "Edu. Low", "Cohab - non-employed", "Cohab - unknown",
+                              "Married - employed", "Married - non-employed", "Married - unknown", "Single"),
+        groups = list("Employment uncertainty" = 1:8, "Controls" = 9:13, "Partnership, partner job status" = 14:19),
+        bold = 0.05)
+
+       
 
 table(spsurv$event, spsurv$finfut.imp)
 survaov <- aov(event ~ finnow.imp, data = spsurv)
@@ -235,6 +289,11 @@ cox.zph(coxphridge)
 coxphfrailty <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + frailty.gaussian(jbsec2), data = spsurv, cluster = pidp, method = "breslow")
 summary(coxphfrailty)
 cox.zph(coxphfrailty)
+
+stargazer(fspcoxph, fspparcoxph, mspcoxph, mspparcoxph,
+          notes.label = "Significance levels",
+          type = "html",
+          out = "test_frailty.doc")
 
 coxphpsp<- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + pspline(jbsec2), data = spsurv, cluster = pidp, method = "breslow")
 summary(coxphpsp)
