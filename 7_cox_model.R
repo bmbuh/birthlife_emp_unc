@@ -5,7 +5,7 @@
 # install.packages("zoo")
 # install.packages("survminer")
 # if(!require(devtools)) install.packages("devtools")
-# devtools::install_github("kassambara/survminer", build_vignettes = FALSE)
+devtools::install_github("kassambara/survminer", build_vignettes = FALSE)
 # install.packages("survPen")
 # install.packages("flexsurv")
 # install.packages("coxme")
@@ -134,10 +134,6 @@ com_panel5 <- com_panel4 %>%
 com_panel5 %>% 
   ungroup() %>% 
   count(combo)
-  
-###########################################################################
-# Cox Prop Haz Model ------------------------------------------------------
-###########################################################################
 
 #There is an issue where some end dates are the same as the start dates because the baby was born the same month as the interview
 #This is solved by adding one month to the end date
@@ -148,14 +144,28 @@ com_panel6 <- com_panel5 %>%
   mutate(time2 = test2 + time2) %>% 
   dplyr::select(-test, -test2)
 
+
 #Save and load the combined individual data file as an RDS
 saveRDS(com_panel6, file = "surv.rds")
 surv <- file.choose()
 surv <- readRDS(surv)
 
-surv %>% 
-  count(marstat_dv)
+###########################################################################
+# Cox Prop Haz Model ------------------------------------------------------
+###########################################################################
 
+#Descriptive Stats of Sample
+#Note: needed to switch to "spsurv" data set to include imputed jbsec
+
+mycontrols <- tableby.control(test = FALSE)
+survstats <-arsenal::tableby(sex ~ se_ee + finnow.imp + finfut.imp + jbsec + edu_cat + combo, data = spsurv, control = mycontrols)
+labels(survstats) <-  c(se_ee = "PJI", finnow.imp = "Present Financial Outlook", finfut.imp = "Future Financial Outlook",
+                    jbsec = "Job Security", edu_cat = "Educational Attainment", combo = "Partnership, Partner's Job Status")
+summary(survstats)
+write2word(survstats, "survstats.doc")
+
+
+#Seperate datasets for men and women for the survival analysis
 msurv <- surv %>% #data set for men
   filter(sex == 1)
 
@@ -163,44 +173,44 @@ fsurv <- surv %>% #data set for women
   filter(sex == 2)
 
 #Kaplan-Meier non-parametric analysis
-kmsurv_sex <- survfit(Surv(time1, time2, event) ~ se_ee + strata(sex), data = surv, cluster = pidp)
-summary(kmsurv_sex)
-plot(kmsurv_sex, xlab = "Time in months since first interview", ylab = "First Birth Probability by Sex")
-ggsurvplot(kmsurv_sex, size = 1,   # change line size
-           ylim = c(0.69,1) ,
-           # palette = c("#E7B800", "#2E9FDF"),# custom color palettes
-           conf.int = TRUE,          # Add confidence interval
-          # pval = TRUE,              # Add p-value
-           risk.table = TRUE,        # Add risk table
-           risk.table.col = "strata",# Risk table color by groups
-           # legend.labs =
-             c("Male", "Female"),    # Change legend labels
-           risk.table.height = 0.25, # Useful to change when you have multiple groups
-           ggtheme = theme_bw()      # Change ggplot2 theme 
-           ) + labs(caption = "Survival probaility cut at 0.7")
-
-
-
-kmsurv_edu <- survfit(Surv(time1, time2, event) ~ strata(edu_cat) + se_ee, data = surv, cluster = pidp)
-summary(kmsurv_edu)
-plot(kmsurv_edu, xlab = "Time", ylab = "First Birth Probability by Education")
-ggsurvplot(kmsurv_edu, size = 1,   # change line size
-           ylim = c(0.6,1),
-           # palette = c("#E7B800", "#2E9FDF"),# custom color palettes
-           conf.int = TRUE,          # Add confidence interval
-           # pval = TRUE,              # Add p-value
-           risk.table = TRUE,        # Add risk table
-           risk.table.col = "strata",# Risk table color by groups
-           legend.labs =
-           c("High", "Low", "Medium", "Unknown"),    # Change legend labels
-           risk.table.height = 0.4, # Useful to change when you have multiple groups
-           ggtheme = theme_bw()      # Change ggplot2 theme 
-) + labs(caption = "Survival probaility cut at 0.6") #+
-  # ggsave("cox_edu.png")
+# kmsurv_sex <- survfit(Surv(time1, time2, event) ~ se_ee + strata(sex), data = surv, cluster = pidp)
+# summary(kmsurv_sex)
+# plot(kmsurv_sex, xlab = "Time in months since first interview", ylab = "First Birth Probability by Sex")
+# ggsurvplot(kmsurv_sex, size = 1,   # change line size
+#            ylim = c(0.69,1),
+#            # palette = c("#E7B800", "#2E9FDF"),# custom color palettes
+#            conf.int = TRUE,          # Add confidence interval
+#           # pval = TRUE,              # Add p-value
+#            risk.table = TRUE,        # Add risk table
+#            risk.table.col = "strata",# Risk table color by groups
+#            # legend.labs =
+#             # c("Male", "Female"),    # Change legend labels
+#            risk.table.height = 0.25, # Useful to change when you have multiple groups
+#            ggtheme = theme_bw()      # Change ggplot2 theme 
+#            ) + labs(caption = "Survival probaility cut at 0.7")
+# 
+# 
+# 
+# kmsurv_edu <- survfit(Surv(time1, time2, event) ~ strata(edu_cat) + se_ee, data = surv, cluster = pidp)
+# summary(kmsurv_edu)
+# plot(kmsurv_edu, xlab = "Time", ylab = "First Birth Probability by Education")
+# ggsurvplot(kmsurv_edu, size = 1,   # change line size
+#            ylim = c(0.6,1),
+#            # palette = c("#E7B800", "#2E9FDF"),# custom color palettes
+#            conf.int = TRUE,          # Add confidence interval
+#            # pval = TRUE,              # Add p-value
+#            risk.table = TRUE,        # Add risk table
+#            risk.table.col = "strata",# Risk table color by groups
+#            # legend.labs =
+#            # c("High", "Low", "Medium", "Unknown"),    # Change legend labels
+#            risk.table.height = 0.4, # Useful to change when you have multiple groups
+#            ggtheme = theme_bw()      # Change ggplot2 theme 
+# ) + labs(caption = "Survival probaility cut at 0.6") #+
+#   # ggsave("cox_edu.png")
 
 coxph <- coxph(formula = Surv(time1, time2, event) ~ strata(sex) + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + combo, data = surv, cluster = pidp, method = "breslow")
 summary(coxph)
-fcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + ridge(jbsec), data = fsurv, cluster = pidp, method = "breslow")
+fcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat, data = fsurv, cluster = pidp, method = "breslow")
 summary(fcoxph)
 mcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat, data = msurv, cluster = pidp, method = "breslow")
 summary(mcoxph)
@@ -210,25 +220,41 @@ mparcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + agemn + agesq +
 summary(mcoxph)
 
 
-survfit(Surv(time1, time2, event) ~ 1, data = surv, cluster = pidp)
+survsex <- survfit(Surv(time1, time2, event) ~ strata(sex), data = surv, cluster = pidp)
+summary(survsex)
+plot(survsex)
+ggsurvplot(survsex,
+           size = 1,
+           ylim = c(0.67, 1),
+           palette = c("#E7B800", "#2E9FDF"),
+           conf.int = TRUE,
+           risk.table = TRUE,
+           risk.table.col = "strata", #changes the risk table numbers to the color of the figure
+           legend.labs = c("Male", "Female"),
+           risk.table.height = 0.25,
+           ggtheme = theme_bw(),
+           tables.theme = theme_classic())
 
-stargazer(fcoxph, fparcoxph, mcoxph, mparcoxph,
-          # title = "Ordinal logistic regression",
-          # dep.var.caption = "Change in number of intended children: Wave 5 - 10",
-          # dep.var.labels = c("Less intended", "Same intended", "More intended"),
-          # column.labels = c(),
-          # covariate.labels = c("Had a child", "Ratio of waves spent employed", "Ratio waves with positive financial outlook",
-          #                      "Age", "Stayed single", "Stayed married", "Got Married", "Medium education", "High education"),
-          notes.label = "Significance levels",
-          type = "html",
-          out = "test_stargazer.doc")
 
-#Testing splines for jbsec
+# stargazer(fcoxph, fparcoxph, mcoxph, mparcoxph,
+#           # title = "Ordinal logistic regression",
+#           # dep.var.caption = "Change in number of intended children: Wave 5 - 10",
+#           # dep.var.labels = c("Less intended", "Same intended", "More intended"),
+#           # column.labels = c(),
+#           # covariate.labels = c("Had a child", "Ratio of waves spent employed", "Ratio waves with positive financial outlook",
+#           #                      "Age", "Stayed single", "Stayed married", "Got Married", "Medium education", "High education"),
+#           notes.label = "Significance levels",
+#           type = "html",
+#           out = "test_stargazer.doc")
+
+#Adding splines for jbsec
 spsurv <- surv %>% 
   fill(jbsec, .direction = "downup") %>% 
   mutate(jbsec = fct_relevel(jbsec, c("3 non-employed", "1 likely", "2 unlikely"))) %>%
   mutate(edu_cat = fct_relevel(edu_cat, c("other", "high", "medium", "low"))) %>% 
-  mutate(jbsec2 = as.numeric(jbsec))
+  mutate(jbsec2 = as.numeric(jbsec)) %>% 
+  mutate(combo = fct_relevel(combo, c("cohab-unknown", "single-unknown", "cohab-employed", "cohab-non-employed",
+                                      "married-employed", "married-non-employed", "married-unknown")))
 
 mspsurv <- spsurv %>% #data set for men
   filter(sex == 1)
@@ -236,13 +262,13 @@ mspsurv <- spsurv %>% #data set for men
 fspsurv <- spsurv %>% #data set for women
   filter(sex == 2)
 
-fspcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + + agemn + agesq + edu_cat, data = fspsurv, cluster = pidp, method = "breslow")
+fspcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + agemn + agesq + edu_cat, data = fspsurv, cluster = pidp, method = "breslow")
 summary(fspcoxph)
-mspcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + + agemn + agesq + edu_cat, data = mspsurv, cluster = pidp, method = "breslow")
+mspcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + agemn + agesq + edu_cat, data = mspsurv, cluster = pidp, method = "breslow")
 summary(mspcoxph)
-fspparcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + + agemn + agesq + edu_cat + combo, data = fspsurv, cluster = pidp, method = "breslow")
+fspparcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + agemn + agesq + edu_cat + combo, data = fspsurv, cluster = pidp, method = "breslow")
 summary(fspparcoxph)
-mspparcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + + agemn + agesq + edu_cat + combo, data = mspsurv, cluster = pidp, method = "breslow")
+mspparcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + agemn + agesq + edu_cat + combo, data = mspsurv, cluster = pidp, method = "breslow")
 summary(mspparcoxph)
 
 #The stargazer package cannot handle cox.penal results so the texreg package needs to be used
@@ -254,12 +280,26 @@ htmlreg(list(fspcoxph, fspparcoxph, mspcoxph, mspparcoxph),
                                "Fut. Fin. 'Better off'", "Fut. Fin. 'Worse off'",
                               "Job security", 
                               "Age, in months", "Age Squared", 
-                              "Edu. High", "Edu. Medium", "Edu. Low", "Cohab - non-employed", "Cohab - unknown",
-                              "Married - employed", "Married - non-employed", "Married - unknown", "Single"),
-        groups = list("Employment uncertainty" = 1:8, "Controls" = 9:13, "Partnership, partner job status" = 14:19),
-        bold = 0.05)
+                              "Edu. High", "Edu. Medium", "Edu. Low", "Single", "Cohab - employed", "Cohab - non-employed",
+                              "Married - employed", "Married - non-employed", "Married - unknown"),
+        groups = list("Employment uncertainty" = 1:8, "Controls" = 9:10, "Education (Ref = Edu. Other)" = 11:13, "Partnership, partner job status (Ref = Cohab - unknown)" = 14:19),
+        bold = 0.05,
+        caption = "test")
 
-       
+# spsurvsex <- survfit(Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + agemn + agesq + edu_cat, data = spsurv, cluster = pidp)
+# summary(spsurvsex)
+# plot(spsurvsex)
+# ggsurvplot(spsurvsex,
+#            size = 1,
+#            ylim = c(0.67, 1),
+#            palette = c("#E7B800", "#2E9FDF"),
+#            conf.int = TRUE,
+#            risk.table = TRUE,
+#            risk.table.col = "strata", #changes the risk table numbers to the color of the figure
+#            legend.labs = c("Male", "Female"),
+#            risk.table.height = 0.25,
+#            ggtheme = theme_bw(),
+#            tables.theme = theme_classic())     
 
 table(spsurv$event, spsurv$finfut.imp)
 survaov <- aov(event ~ finnow.imp, data = spsurv)
@@ -279,22 +319,43 @@ summary(chisqsurv)
 sp1 <- flexsurvreg(Surv(time1, time2, event) ~ jbsec, data = surv, k = 23, scale = "hazard")
 summary(sp1)
 
+#Done higher up
 #This model uses a ridge regression on jbsec 
 #The ridge regression pushes the likelihood estimator towards zero(aka making the known effect of jbsec shrink from the measurement)
-coxphridge <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + ridge(jbsec, theta = 23, scale = TRUE), data = spsurv, cluster = pidp, method = "breslow")
-summary(coxphridge)
-cox.zph(coxphridge)
+# coxphridge <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + ridge(jbsec, theta = 23, scale = TRUE), data = spsurv, cluster = pidp, method = "breslow")
+# summary(coxphridge)
+# cox.zph(coxphridge)
 
 #Frality function allows for adding a simple random effect to a term
 coxphfrailty <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + frailty.gaussian(jbsec2), data = spsurv, cluster = pidp, method = "breslow")
 summary(coxphfrailty)
 cox.zph(coxphfrailty)
 
-stargazer(fspcoxph, fspparcoxph, mspcoxph, mspparcoxph,
-          notes.label = "Significance levels",
-          type = "html",
-          out = "test_frailty.doc")
+ffcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + frailty.gaussian(jbsec2) + agemn + agesq + edu_cat, data = fspsurv, cluster = pidp, method = "breslow")
+summary(ffcoxph)
+mfcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + frailty.gaussian(jbsec2) + agemn + agesq + edu_cat, data = mspsurv, cluster = pidp, method = "breslow")
+summary(mfcoxph)
+ffparcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + frailty.gaussian(jbsec2) + agemn + agesq + edu_cat + combo, data = fspsurv, cluster = pidp, method = "breslow")
+summary(ffparcoxph)
+mfparcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + frailty.gaussian(jbsec2) + agemn + agesq + edu_cat + combo, data = mspsurv, cluster = pidp, method = "breslow")
+summary(mfparcoxph)
 
+htmlreg(list(ffcoxph, ffparcoxph, mfcoxph, mfparcoxph),
+        file = "frailty.test.html",
+        single.row = TRUE,
+        custom.model.names = c("Female", "Female", "Male", "Male"),
+        custom.coef.names = c("PJI", "Doing alright", "Just getting by", "Finding it quite difficult","Finding it very difficult",
+                              "Better off", "Worse off",
+                              "Non-employed", "Likely to lose job", "Unlikely to lose job", 
+                              "Age, in months", "Age Squared", 
+                              "Edu. High", "Edu. Medium", "Edu. Low", "Single", "Cohab - employed", "Cohab - non-employed",
+                              "Married - employed", "Married - non-employed", "Married - unknown"),
+        groups = list("Previous Joblessness" = 1:1, "Present Financial Outlook (Ref = Living comfortably)" = 2:5, "Future Financial Outlook (Ref = About the same)" = 6:7,
+                      "Job Security" = 8:10, "Controls" = 11:12, "Education (Ref = Edu. Other)" = 13:15, "Partnership, partner job status (Ref = Cohab - unknown)" = 16:21),
+        bold = 0.05,
+        caption = "test")
+
+#Splined regression test 
 coxphpsp<- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + pspline(jbsec2), data = spsurv, cluster = pidp, method = "breslow")
 summary(coxphpsp)
 cox.zph(coxphpsp)
