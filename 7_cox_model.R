@@ -10,6 +10,9 @@ devtools::install_github("kassambara/survminer", build_vignettes = FALSE)
 # install.packages("flexsurv")
 # install.packages("coxme")
 # install.packages("texreg")
+# install.packages("forestplot")
+# install.packages("sjPlot")
+
 
 library(data.table)
 library(padr)
@@ -25,11 +28,14 @@ library(flexsurv)
 library(coxme)
 library(stargazer)
 library(texreg)
+library(forestplot)
+library(sjPlot)
 
 
-#the first task is filling in missing interview dates from missing internal waves
-#This is probably best accomplished by simply picking the month halfway between the existing waves
-#This process will be less extensive after eliminating the rows before the first observed waves and after the last observed wave
+###########################################################################
+# Creating starting and ending dates --------------------------------------
+###########################################################################
+
 
 com_panel <- file.choose()
 com_panel <- readRDS(com_panel)
@@ -254,25 +260,44 @@ spsurv <- surv %>%
   mutate(edu_cat = fct_relevel(edu_cat, c("other", "high", "medium", "low"))) %>% 
   mutate(jbsec2 = as.numeric(jbsec)) %>% 
   mutate(combo = fct_relevel(combo, c("cohab-unknown", "single-unknown", "cohab-employed", "cohab-non-employed",
-                                      "married-employed", "married-non-employed", "married-unknown")))
+                                      "married-employed", "married-non-employed", "married-unknown"))) %>% 
+  mutate(finnow.imp = recode(finnow.imp,
+                             "1 Living comfortably" = "Living comfortably",
+                             "2 Doing alright" = "Doing alright",
+                             "3 Just getting by" = "Just getting by",
+                             "4 Finding it quite difficult" = "Quite difficult",
+                             "5 Finding it very difficult" = "Very difficult"))
 
 mspsurv <- spsurv %>% #data set for men
   filter(sex == 1)
+str(mspsurv)
 
 fspsurv <- spsurv %>% #data set for women
   filter(sex == 2)
 
 fspcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + agemn + agesq + edu_cat, data = fspsurv, cluster = pidp, method = "breslow")
 summary(fspcoxph)
+testph <- cox.zph(fspcoxph)
+ggcoxzph(testph)
+zp <- cox.zph(fspcoxph, transform= function(time) log(time +20))
+plot(zp[1])
+abline(0,0, col=2)
+abline(h= fspcoxph$coef[1], col=3, lwd=2, lty=2)
 mspcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + agemn + agesq + edu_cat, data = mspsurv, cluster = pidp, method = "breslow")
 summary(mspcoxph)
+cox.zph(mspcoxph)
 fspparcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + agemn + agesq + edu_cat + combo, data = fspsurv, cluster = pidp, method = "breslow")
 summary(fspparcoxph)
+cox.zph(fspparcoxph)
 mspparcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + agemn + agesq + edu_cat + combo, data = mspsurv, cluster = pidp, method = "breslow")
 summary(mspparcoxph)
+cox.zph(mspparcoxph)
 
 #The stargazer package cannot handle cox.penal results so the texreg package needs to be used
+extract(fspcoxph)
+
 htmlreg(list(fspcoxph, fspparcoxph, mspcoxph, mspparcoxph),
+        include.zph = FALSE,
         file = "ridge.test.html",
         single.row = TRUE,
         custom.model.names = c("Female", "Female", "Male", "Male"),
@@ -283,8 +308,45 @@ htmlreg(list(fspcoxph, fspparcoxph, mspcoxph, mspparcoxph),
                               "Edu. High", "Edu. Medium", "Edu. Low", "Single", "Cohab - employed", "Cohab - non-employed",
                               "Married - employed", "Married - non-employed", "Married - unknown"),
         groups = list("Employment uncertainty" = 1:8, "Controls" = 9:10, "Education (Ref = Edu. Other)" = 11:13, "Partnership, partner job status (Ref = Cohab - unknown)" = 14:19),
-        bold = 0.05,
-        caption = "test")
+        bold = 0.05)
+
+ggforest(
+  fspcoxph,
+  data = fspsurv,
+  main = "Hazard ratio",
+  cpositions = c(0.02, 0.22, 0.4),
+  fontsize = 0.7,
+  refLabel = "reference",
+  noDigits = 2
+)
+ggforest(
+  mspparcoxph,
+  data = mspsurv,
+  # main = "Hazard ratio",
+  # cpositions = c(0.02, 0.22, 0.4),
+  # fontsize = 0.7,
+  # # refLabel = "reference",
+  # noDigits = 2
+)
+
+forestplot()
+
+plot_models(fspcoxph, mspcoxph,
+            title = "Hazard Ratios",
+            m.labels = c("Men", "Women"),
+            axis.labels = c(
+              # "Married - unknown", "Married - non-employed","Married - employed",
+              # "Cohab - non-employed", "Cohab - employed","Single",
+              "Edu. Low", "Edu. Medium", "Edu. High",
+              "Age Squared", "Age, in months",
+              "Job security",
+              "Fut. Fin. 'Worse off'", "Fut. Fin. 'Better off'",
+              "Pres. Fin. 'Finding it very difficult'","Pres. Fin. 'Finding it quite difficult'", "Pres. Fin. 'Just getting by'","Pres. Fin. 'Doing alright'", "PJI"),
+            axis.lim = c(0.1, 5.0),
+            colors  = c("#2E9FDF", "#E7B800"),
+            p.shape = TRUE,
+            grid = TRUE)
+
 
 # spsurvsex <- survfit(Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + agemn + agesq + edu_cat, data = spsurv, cluster = pidp)
 # summary(spsurvsex)
@@ -326,7 +388,10 @@ summary(sp1)
 # summary(coxphridge)
 # cox.zph(coxphridge)
 
-#Frality function allows for adding a simple random effect to a term
+###############################################################################
+#Frailty function allows for adding a simple random effect to a term...........
+###############################################################################
+
 coxphfrailty <- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + frailty.gaussian(jbsec2), data = spsurv, cluster = pidp, method = "breslow")
 summary(coxphfrailty)
 cox.zph(coxphfrailty)
@@ -354,6 +419,18 @@ htmlreg(list(ffcoxph, ffparcoxph, mfcoxph, mfparcoxph),
                       "Job Security" = 8:10, "Controls" = 11:12, "Education (Ref = Edu. Other)" = 13:15, "Partnership, partner job status (Ref = Cohab - unknown)" = 16:21),
         bold = 0.05,
         caption = "test")
+
+
+ggforest(
+  mfparcoxph,
+  data = mspsurv,
+  main = "Hazard ratio",
+  cpositions = c(0.02, 0.22, 0.4),
+  fontsize = 0.7,
+  refLabel = "reference",
+  noDigits = 2
+)
+
 
 #Splined regression test 
 coxphpsp<- coxph(formula = Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + pspline(jbsec2), data = spsurv, cluster = pidp, method = "breslow")
