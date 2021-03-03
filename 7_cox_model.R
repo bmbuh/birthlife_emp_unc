@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 17.02.2021
-#Last Updated: 25.02.2021
+#Last Updated: 03.03.2021
 
 # install.packages("zoo")
 # install.packages("survminer")
@@ -239,7 +239,9 @@ ggsurvplot(survsex,
            legend.labs = c("Male", "Female"),
            risk.table.height = 0.25,
            ggtheme = theme_bw(),
-           tables.theme = theme_classic())
+           tables.theme = theme_classic()) +
+  ggtitle("Non-paremetic ", subtitle =  "UKHLS = Measured 9 months before first birth") +
+  
 
 
 # stargazer(fcoxph, fparcoxph, mcoxph, mparcoxph,
@@ -283,6 +285,7 @@ zp <- cox.zph(fspcoxph, transform= function(time) log(time +20))
 plot(zp[1])
 abline(0,0, col=2)
 abline(h= fspcoxph$coef[1], col=3, lwd=2, lty=2)
+anova(zp)
 mspcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + agemn + agesq + edu_cat, data = mspsurv, cluster = pidp, method = "breslow")
 summary(mspcoxph)
 cox.zph(mspcoxph)
@@ -313,30 +316,32 @@ htmlreg(list(fspcoxph, fspparcoxph, mspcoxph, mspparcoxph),
 ggforest(
   fspcoxph,
   data = fspsurv,
+  main = "Hazard ratio - Men",
+  cpositions = c(0.02, 0.22, 0.4),
+  fontsize = 0.7,
+  refLabel = "reference",
+  noDigits = 2
+)
+
+ggforest(
+  mspparcoxph,
+  data = mspsurv,
   main = "Hazard ratio",
   cpositions = c(0.02, 0.22, 0.4),
   fontsize = 0.7,
   refLabel = "reference",
   noDigits = 2
 )
-ggforest(
-  mspparcoxph,
-  data = mspsurv,
-  # main = "Hazard ratio",
-  # cpositions = c(0.02, 0.22, 0.4),
-  # fontsize = 0.7,
-  # # refLabel = "reference",
-  # noDigits = 2
-)
+
 
 forestplot()
 
-plot_models(fspcoxph, mspcoxph,
+plot_models(fspparcoxph, mspparcoxph,
             title = "Hazard Ratios",
             m.labels = c("Men", "Women"),
             axis.labels = c(
-              # "Married - unknown", "Married - non-employed","Married - employed",
-              # "Cohab - non-employed", "Cohab - employed","Single",
+              "Married - unknown", "Married - non-employed","Married - employed",
+              "Cohab - non-employed", "Cohab - employed","Single",
               "Edu. Low", "Edu. Medium", "Edu. High",
               "Age Squared", "Age, in months",
               "Job security",
@@ -366,6 +371,9 @@ plot_models(fspcoxph, mspcoxph,
 table(spsurv$event, spsurv$finfut.imp)
 survaov <- aov(event ~ finnow.imp, data = spsurv)
 summary(survaov)
+fit <- coxph(Surv(time1, time2, event) ~ sex + se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + combo, data = surv)
+fit <- coxph(Surv(time1, time2, event) ~ se_ee, data = spsurv)
+anova(fit)
 
 table(spsurv$finnow.imp, spsurv$finfut.imp)
 chisqsurv <- chisq.test(table(spsurv$finnow.imp, spsurv$finfut.imp))
