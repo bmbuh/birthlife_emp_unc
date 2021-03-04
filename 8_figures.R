@@ -1,9 +1,40 @@
 #Coded by: Brian Buh
 #Started on: 03.03.2021
-#Last Updated: 
+#Last Updated: 04.03.2021
 
 library(tidyverse)
 library(haven)
+
+surv <- file.choose()
+surv <- readRDS(surv)
+
+
+#Graph to look at the age of first birth conception
+agetest <- surv %>% 
+  dplyr::select(sex, agemn, event) %>% 
+  mutate(age = agemn/12) %>% 
+  filter(event == 1) %>% 
+  arrange(age) %>% 
+  group_by(age) %>% 
+  add_tally() %>% 
+  mutate(sex = as.factor(sex))
+
+agetest %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Wormen",)) %>% 
+  ggplot(aes(x = age, y= n, group = sex, color = sex)) +
+  geom_smooth() +
+  # geom_label(group_by(age) %>% filter(x == max(x)), aes(label = sprintf('%0.2f', y)), hjust = -0.5) +
+  ylim(0, 17) +
+  scale_fill_brewer(palette = "Dark2") +
+  theme(aspect.ratio = 1) +
+  labs(color = "Sex") +
+  xlab("Age of conception of first child") + 
+  ylab("Count") +
+  ggtitle("Age of First birth", subtitle =  "UKHLS = Measured 9 months before first birth") +
+  #facet_wrap(~sex) +
+  ggsave("surv_age_fb.png")
 
 ###########################################################################
 # PJI Histograms ----------------------------------------------------------
@@ -110,12 +141,16 @@ statsurv <- surv %>%
   arrange(pidp, desc(wave)) %>% 
   mutate(rev_time = row_number()) %>% 
   filter(rev_time == 1) %>% 
-  mutate(fb = ifelse(is.na(kdob), 0, 1))
+  mutate(fb = ifelse(is.na(kdob), 0, 1)) %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women"))
 
 
 mycontrols <- tableby.control(test = FALSE)
-desstats <-arsenal::tableby(fb ~ se_ee + finnow.imp + finfut.imp + jbsec + edu_cat + combo + time2, data = statsurv, control = mycontrols)
-labels(desstats ) <-  c(se_ee = "PJI", finnow.imp = "Present Financial Outlook", finfut.imp = "Future Financial Outlook",
+desstats <-arsenal::tableby(fb ~ sex + se_ee + finnow.imp + finfut.imp + jbsec + edu_cat + combo + time2, data = statsurv, control = mycontrols)
+labels(desstats ) <-  c(sex = "Sex", se_ee = "PJI", finnow.imp = "Present Financial Outlook", finfut.imp = "Future Financial Outlook",
                         jbsec = "Job Security", edu_cat = "Educational Attainment", combo = "Partnership, Partner's Job Status")
 summary(desstats )
 write2word(desstats , "desstats .doc")
