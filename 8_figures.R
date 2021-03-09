@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 03.03.2021
-#Last Updated: 04.03.2021
+#Last Updated: 09.03.2021
 
 library(tidyverse)
 library(haven)
@@ -93,7 +93,7 @@ surv %>%
 
 surv %>% 
   ggplot(aes(wave, fill = finnow.imp)) +
-  geom_bar()+
+  geom_bar(position = "fill")+
   theme(aspect.ratio = 1) +
   scale_fill_brewer(palette = "Dark2") +
   scale_x_continuous(breaks = seq(2, 10, by = 2)) +
@@ -101,11 +101,12 @@ surv %>%
   # xlab("Persistent Joblessness Index: 1 = Continuously Jobless") + 
   ggtitle("Present Financial Situation", subtitle =  "Sample - waves 1 to 10") +
   # facet_wrap(~sex) +
+  labs(caption = "Conducted annually; Wave 1: 2009-2011") +
   ggsave("finnow_surv.png")
 
 surv %>% 
   ggplot(aes(wave, fill = finfut.imp)) +
-  geom_bar()+
+  geom_bar(position = "fill")+
   theme(aspect.ratio = 1) +
   scale_fill_brewer(palette = "Set1") +
   scale_x_continuous(breaks = seq(2, 10, by = 2)) +
@@ -113,6 +114,7 @@ surv %>%
   # xlab("Persistent Joblessness Index: 1 = Continuously Jobless") + 
   ggtitle("Future Financial Situation", subtitle =  "Sample - waves 1 to 10") +
   # facet_wrap(~sex) +
+  labs(caption = "Conducted annually; Wave 1: 2009-2011") +
   ggsave("finfut_surv.png")
 
 spsurv %>% 
@@ -123,19 +125,20 @@ spsurv %>%
                         "2 unlikely" = "Unlikely")) %>%
   mutate(jbsec = fct_relevel(jbsec, c( "Likely", "Unlikely", "Non-employed"))) %>% 
   ggplot(aes(wave, fill = jbsec)) +
-  geom_bar()+
+  geom_bar(position = "fill")+
   theme(aspect.ratio = 1) +
   scale_fill_brewer(palette = "RdYlBu") +
   scale_x_continuous(breaks = seq(2, 10, by = 2)) +
   labs(fill = "jbsec") +
   # xlab("Persistent Joblessness Index: 1 = Continuously Jobless") + 
-  ggtitle("Future Financial Situation", subtitle =  "Sample - waves 1 to 10") +
+  ggtitle("Perceived Job Security", subtitle =  "Sample - waves 1 to 10") +
   # facet_wrap(~sex) +
   ggsave("jbsec_surv.png")
 
 
-# Descriitive stats -------------------------------------------------------
+# Descriptive stats -------------------------------------------------------
 
+#This is done to look at ending wave stats
 statsurv <- surv %>% 
   group_by(pidp) %>% 
   arrange(pidp, desc(wave)) %>% 
@@ -155,4 +158,127 @@ labels(desstats ) <-  c(sex = "Sex", se_ee = "PJI", finnow.imp = "Present Financ
 summary(desstats )
 write2word(desstats , "desstats .doc")
 
+#Looking at the level of uncertainty experienced
+#Categorical variables are changed to numeric
 
+#I start by reversing the scale of finnow
+substat <- surv %>% 
+  mutate(finnow.imp = fct_relevel(finnow.imp, c("5 Finding it very difficult", "4 Finding it quite difficult",
+                                                "3 Just getting by", "2 Doing alright", "1 Living comfortably"))) %>%
+  mutate(finnow.num = as.numeric(finnow.imp)) %>% 
+  #I change the scale of finfut to be centered at 0
+  mutate(finfut.imp = fct_relevel(finfut.imp, c( "Worse off", "About the same", "Better off"))) %>% 
+  mutate(finfut.num = as.numeric(finfut.imp)) %>% 
+  mutate(finfut.num = recode(finfut.num,
+                             "2" = "0",
+                             "1" = "-1",
+                             "3" = "1")) %>% 
+  mutate(finfut.num = as.integer(finfut.num))
+
+str(substat)
+
+sumsubstat <- substat %>% 
+  group_by(pidp) %>% 
+  summarize(meanfinnow = mean(finnow.num), meanfinfut = mean(finfut.num)) %>% 
+  left_join(., statsurv, by = "pidp") %>% 
+  mutate(gor_dv = as.character(gor_dv)) %>% 
+  #Create categories for ethnicity based on Kulu&Hannemann2016
+  mutate(ethnic = ifelse(racel_dv == 1, 1, #english, scottish, welsh, ni
+                         ifelse(racel_dv == 2 | racel_dv == 3 | racel_dv == 4, 2, #other white
+                                ifelse(racel_dv == 9, 3, #indian
+                                       ifelse(racel_dv == 10, 4, #pakistani
+                                              ifelse(racel_dv == 11, 5, #bangledeshi
+                                                     ifelse(racel_dv == 14, 7, #carribean
+                                                            ifelse(racel_dv == 12 | racel_dv == 13, 6, #other asian
+                                                                   ifelse(racel_dv == 15, 8, 9))))))))) %>% #african or other
+  mutate(ethnic = as.character(ethnic)) %>%  
+  mutate(ethnic = recode(ethnic,
+                        "1" = "UK",
+                        "2" = "Other White",
+                        "3" = "Indian",
+                        "4" = "Pakistani",
+                        "5" = "Bangledeshi",
+                        "6" = "Other Asian",
+                        "7" = "Caribbean",
+                        "8" = "African",
+                        "9" = "Mixed/Other")) %>%
+  mutate(ethnic = fct_relevel(ethnic, c( "UK",
+                                         "Other White",
+                                         "Indian",
+                                         "Pakistani",
+                                         "Bangledeshi",
+                                         "Other Asian",
+                                         "Caribbean",
+                                         "African",
+                                         "Mixed/Other"))) %>% 
+  mutate(gen = ifelse(generation == 1, 1, 2)) %>% #Creates a binary of immigrants versus born UK
+  unite(genethnic, ethnic, gen,  sep = "-", remove = FALSE) %>% 
+  unite(sexethnic, sex, ethnic, sep = "-", remove = FALSE) %>% 
+  unite(ethnicsex, ethnic, sex, sep = "-", remove = FALSE)
+
+str(sumsubstat)
+sumsubstat %>% 
+  count(genethnic)
+
+sumsubstat %>%   
+  mutate(fbyes = ifelse(is.na(kdob), 0, 1)) %>%
+  mutate(fbyes = recode(fbyes,
+                        "0" = "No birth",
+                        "1" = "First birth")) %>%
+  mutate(fbyes = as.character(fbyes)) %>% 
+  ggplot(aes(meanfinnow, fill = fbyes)) +
+  geom_histogram(binwidth = 0.25) +
+  scale_fill_brewer(palette = "Dark2") +
+  theme(aspect.ratio = 1) +
+  labs(caption = "5 = Continuously 'Living comfortably'") +
+  xlab("Present Financial Situation") + 
+  ggtitle("Mean of Present Financial Sitaution", subtitle =  "UKHLS Waves 1-10") +
+  facet_wrap(~sex) +
+  ggsave("meanfinnow_hist.png")
+
+sumsubstat %>%   
+  mutate(fbyes = ifelse(is.na(kdob), 0, 1)) %>%
+  mutate(fbyes = recode(fbyes,
+                        "0" = "No birth",
+                        "1" = "First birth")) %>%
+  mutate(fbyes = as.character(fbyes)) %>% 
+  ggplot(aes(meanfinfut, fill = fbyes)) +
+  geom_histogram(binwidth = 0.25) +
+  scale_fill_brewer(palette = "Dark2") +
+  theme(aspect.ratio = 1) +
+  labs(caption = "Centered around 0 = 'About the same'") +
+  xlab("Future Financial Situation") + 
+  ggtitle("Mean of Future Financial Sitaution", subtitle =  "UKHLS Waves 1-10") +
+  facet_wrap(~sex) +
+  ggsave("meanfinfut_hist.png")
+  
+mycontrols <- tableby.control(test = FALSE)
+ethnic <-arsenal::tableby(ethnic ~ fb + se_ee + meanfinnow + meanfinfut, data = sumsubstat, control = mycontrols)
+labels(ethnic) <-  c(fb = "Entered Parenthood", se_ee = "PJI", meanfinnow = "Present Financial Outlook", meanfinfut = "Future Financial Outlook")
+                        # jbsec = "Job Security", edu_cat = "Educational Attainment", combo = "Partnership, Partner's Job Status")
+summary(ethnic, text = TRUE)
+# as.data.frame(meanstats)
+# write2word(meanstats , "meanstats.doc")
+write2html(ethnic, "ethnic.html")
+
+genethnic <-arsenal::tableby(genethnic ~ fb + se_ee + meanfinnow + meanfinfut, data = sumsubstat, control = mycontrols)
+labels(genethnic) <-  c(fb = "Entered Parenthood", se_ee = "PJI", meanfinnow = "Present Financial Outlook", meanfinfut = "Future Financial Outlook")
+# jbsec = "Job Security", edu_cat = "Educational Attainment", combo = "Partnership, Partner's Job Status")
+summary(genethnic, text = TRUE)
+# as.data.frame(meanstats)
+# write2word(meanstats , "meanstats.doc")
+write2html(genethnic, "genethnic.html")
+
+sexethnic <-arsenal::tableby(ethnicsex ~ fb + se_ee + meanfinnow + meanfinfut, data = sumsubstat, control = mycontrols)
+labels(sexethnic) <-  c(fb = "Entered Parenthood", se_ee = "PJI", meanfinnow = "Present Financial Outlook", meanfinfut = "Future Financial Outlook")
+# jbsec = "Job Security", edu_cat = "Educational Attainment", combo = "Partnership, Partner's Job Status")
+summary(sexethnic, text = TRUE)
+# as.data.frame(meanstats)
+# write2word(meanstats , "meanstats.doc")
+write2html(sexethnic, "sexethnic.html")
+
+sumsubstat %>% 
+  count(generation)
+  
+  
+  
