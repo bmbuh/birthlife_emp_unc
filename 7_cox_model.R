@@ -5,7 +5,7 @@
 # install.packages("zoo")
 # install.packages("survminer")
 # if(!require(devtools)) install.packages("devtools")
-devtools::install_github("kassambara/survminer", build_vignettes = FALSE)
+# devtools::install_github("kassambara/survminer", build_vignettes = FALSE)
 # install.packages("survPen")
 # install.packages("flexsurv")
 # install.packages("coxme")
@@ -78,7 +78,7 @@ com_panel2 <- com_panel %>%
   ungroup() %>% 
   filter(fb_check == 0 | fb_check == 2) %>% #this variable takes the observed "anychild" and subtracts the binary "kdob oberseved" 1 = had child but no kdob or not had child but observed kdob
   # filter(case_when(sex == 1 ~ age_start <= 50, sex == 2 ~ age_start <= 45) %>% 
-  dplyr::select(pidp, wave, imp, kdob, sex, dvage, dob, racel_dv, gor_dv, ppid, marstat, parjbstat, combo, jbsec, generation,
+  dplyr::select(pidp, wave, imp, hhorig, kdob, sex, dvage, dob, racel_dv, gor_dv, ppid, marstat, parjbstat, combo, jbsec, generation,
                 edu_cat, se_ee, finnow.imp, finfut.imp, startdate, enddate)
 
 com_panel2 %>% 

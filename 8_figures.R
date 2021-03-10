@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 03.03.2021
-#Last Updated: 09.03.2021
+#Last Updated: 10.03.2021
 
 library(tidyverse)
 library(haven)
@@ -98,6 +98,8 @@ surv %>%
   scale_fill_brewer(palette = "Dark2") +
   scale_x_continuous(breaks = seq(2, 10, by = 2)) +
   labs(fill = "finnow") +
+  ylab("Percentage")+
+  xlab("Wave*")+ 
   # xlab("Persistent Joblessness Index: 1 = Continuously Jobless") + 
   ggtitle("Present Financial Situation", subtitle =  "Sample - waves 1 to 10") +
   # facet_wrap(~sex) +
@@ -111,6 +113,8 @@ surv %>%
   scale_fill_brewer(palette = "Set1") +
   scale_x_continuous(breaks = seq(2, 10, by = 2)) +
   labs(fill = "finfut") +
+  ylab("Percentage")+
+  xlab("Wave*")+ 
   # xlab("Persistent Joblessness Index: 1 = Continuously Jobless") + 
   ggtitle("Future Financial Situation", subtitle =  "Sample - waves 1 to 10") +
   # facet_wrap(~sex) +
@@ -126,10 +130,13 @@ spsurv %>%
   mutate(jbsec = fct_relevel(jbsec, c( "Likely", "Unlikely", "Non-employed"))) %>% 
   ggplot(aes(wave, fill = jbsec)) +
   geom_bar(position = "fill")+
+  # geom_text(aes(label = label), position = position_stack(vjust = 0.5), size = 2) +
   theme(aspect.ratio = 1) +
   scale_fill_brewer(palette = "RdYlBu") +
   scale_x_continuous(breaks = seq(2, 10, by = 2)) +
   labs(fill = "jbsec") +
+  ylab("Percentage")+
+  xlab("Wave")+ 
   # xlab("Persistent Joblessness Index: 1 = Continuously Jobless") + 
   ggtitle("Perceived Job Security", subtitle =  "Sample - waves 1 to 10") +
   # facet_wrap(~sex) +
@@ -187,7 +194,7 @@ sumsubstat <- substat %>%
                          ifelse(racel_dv == 2 | racel_dv == 3 | racel_dv == 4, 2, #other white
                                 ifelse(racel_dv == 9, 3, #indian
                                        ifelse(racel_dv == 10, 4, #pakistani
-                                              ifelse(racel_dv == 11, 5, #bangledeshi
+                                              ifelse(racel_dv == 11, 5, #bangladeshi
                                                      ifelse(racel_dv == 14, 7, #carribean
                                                             ifelse(racel_dv == 12 | racel_dv == 13, 6, #other asian
                                                                    ifelse(racel_dv == 15, 8, 9))))))))) %>% #african or other
@@ -197,7 +204,7 @@ sumsubstat <- substat %>%
                         "2" = "Other White",
                         "3" = "Indian",
                         "4" = "Pakistani",
-                        "5" = "Bangledeshi",
+                        "5" = "Bangladeshi",
                         "6" = "Other Asian",
                         "7" = "Caribbean",
                         "8" = "African",
@@ -206,7 +213,7 @@ sumsubstat <- substat %>%
                                          "Other White",
                                          "Indian",
                                          "Pakistani",
-                                         "Bangledeshi",
+                                         "Bangladeshi",
                                          "Other Asian",
                                          "Caribbean",
                                          "African",
@@ -261,8 +268,8 @@ summary(ethnic, text = TRUE)
 # write2word(meanstats , "meanstats.doc")
 write2html(ethnic, "ethnic.html")
 
-genethnic <-arsenal::tableby(genethnic ~ fb + se_ee + meanfinnow + meanfinfut, data = sumsubstat, control = mycontrols)
-labels(genethnic) <-  c(fb = "Entered Parenthood", se_ee = "PJI", meanfinnow = "Present Financial Outlook", meanfinfut = "Future Financial Outlook")
+genethnic <-arsenal::tableby(genethnic ~ sex +fb + se_ee + meanfinnow + meanfinfut, data = sumsubstat, control = mycontrols)
+labels(genethnic) <-  c(sex = "Sex", fb = "Entered Parenthood", se_ee = "PJI", meanfinnow = "Present Financial Outlook", meanfinfut = "Future Financial Outlook")
 # jbsec = "Job Security", edu_cat = "Educational Attainment", combo = "Partnership, Partner's Job Status")
 summary(genethnic, text = TRUE)
 # as.data.frame(meanstats)
@@ -280,5 +287,99 @@ write2html(sexethnic, "sexethnic.html")
 sumsubstat %>% 
   count(generation)
   
-  
-  
+###########################################################################
+# Look at relationships by subpopulation ----------------------------------
+###########################################################################
+
+
+subpop <- sumsubstat %>% 
+  group_by(ethnic, sex) %>% 
+  summarise(meanfinnow = mean(meanfinnow), meanfinfut = mean(meanfinfut), meanpji = mean(se_ee), meanfb = mean(fb))
+
+subpop %>% 
+  ggplot(aes(meanpji, meanfinfut)) +
+  geom_point(aes(color = factor(ethnic), shape = factor(sex), size = 4)) +
+  geom_smooth(method = "lm") +
+  # geom_point(colour = "grey90", size = 1.5) +
+  scale_color_brewer(palette = "Set1") +
+  xlab("Persistent Joblessness Index") +
+  ylab("Future Financial Outlook")+
+  labs(shape = "Sex", color = "Ethnicity", caption = "PJI scaled from 0-1, 1 represents continuously jobless") +
+  ggtitle("Perceived Job Security and Future Financial Outlook", subtitle =  "Childless Respodents Finished with Education under 45 (Women) or 50 (Men)")+ 
+  ggsave("pji_finfut_ethnic.png")
+
+subpop %>% 
+  ggplot(aes(meanpji, meanfb)) +
+  geom_point(aes(color = factor(ethnic), shape = factor(sex)), size = 6) +
+  geom_smooth(method = "lm", se = TRUE) +
+  # geom_point(colour = "grey90", size = 1.5) +
+  scale_color_brewer(palette = "Set1") +
+  xlab("Persistent Joblessness Index") +
+  ylab("Average Observed Rate of Entering Parenthood")+
+  labs(shape = "Sex", color = "Ethnicity", caption = "PJI scaled from 0-1, 1 represents continuously jobless") +
+  ggtitle("Persistent Joblessness and First Birth by Ethnicity and Sex", subtitle =  "Childless Respondents Finished with Education under 45 (Women) or 50 (Men)") + 
+  ggsave("pji_fb_ethnic.png")
+
+gensubpop <- sumsubstat %>% 
+  group_by(ethnic, gen) %>% 
+  summarise(meanfinnow = mean(meanfinnow), meanfinfut = mean(meanfinfut), meanpji = mean(se_ee), meanfb = mean(fb)) %>% 
+  mutate(gen = recode(gen,
+                        "1" = "First Generation",
+                        "2" = "UK Born")) 
+
+gorsubpop <- sumsubstat %>% 
+  group_by(gor_dv, sex) %>% 
+  summarise(meanfinnow = mean(meanfinnow), meanfinfut = mean(meanfinfut), meanpji = mean(se_ee), meanfb = mean(fb))
+
+gensubpop %>% 
+  ggplot(aes(meanpji, meanfb)) +
+  geom_point(aes(color = factor(ethnic), shape = factor(gen)), size = 6) +
+  geom_smooth(method = "lm", se = TRUE) +
+  scale_color_brewer(palette = "Set1") +
+  scale_shape_manual(values=c(15, 18)) +
+  # theme_bw() +
+  xlab("Persistent Joblessness Index") +
+  ylab("Average Observed Rate of Entering Parenthood")+
+  labs(shape = "Generation", color = "Ethnicity", caption = "PJI scaled from 0-1, 1 represents continuously jobless") +
+  ggtitle("Persistent Joblessness and First Birth by Ethnicity and Generation", subtitle =  "Childless Respondents Finished with Education under 45 (Women) or 50 (Men)") + 
+  ggsave("pji_fb_gen.png")
+
+#Attempt to look at histogram of different ethnic groups PJI
+# sumsubstat %>% 
+#   filter(ethnic != "UK") %>% 
+#   ggplot(aes(se_ee, fill = fb)) +
+#   geom_histogram(binwidth = 0.05) +
+#   scale_fill_brewer(palette = "Dark2") +
+#   theme(aspect.ratio = 1) +
+#   labs(fill = "Sex", caption = "Not shown, 0 = continuously employed") +
+#   xlab("Persistent Joblessness Index: 1 = Continuously Jobless") + 
+#   ggtitle("Truncated Persistent Joblessness Index", subtitle =  "UKHLS = Measured 9 months before first birth") +
+#   facet_wrap(~ethnic)
+
+surv %>% 
+  count(imp)
+
+sumsubstat %>%
+  group_by(gor_dv) %>%
+  summarise(count = n() / nrow(.) )
+
+
+sumsubstat %>% 
+ggplot(aes(wave, fill = finfut.imp)) +
+  geom_bar(position = "fill")+
+  # geom_text(aes(label = label), position = position_stack(vjust = 0.5), size = 2) +
+  theme(aspect.ratio = 1) +
+  scale_fill_brewer(palette = "RdYlBu") +
+  scale_x_continuous(breaks = seq(2, 10, by = 2)) +
+  labs(fill = "jbsec") +
+  ylab("Percentage")+
+  xlab("Wave")+ 
+  # xlab("Persistent Joblessness Index: 1 = Continuously Jobless") + 
+  ggtitle("Perceived Job Security", subtitle =  "Sample - waves 1 to 10") +
+  facet_wrap(~ethnic) 
+
+sumsubstat %>% 
+    mutate(age = agemn/12) %>%
+    ggplot(aes(age)) +
+    geom_histogram(binwidth = 0.5) +
+  facet_wrap(~sex)
