@@ -219,9 +219,28 @@ sumsubstat <- substat %>%
                                          "African",
                                          "Mixed/Other"))) %>% 
   mutate(gen = ifelse(generation == 1, 1, 2)) %>% #Creates a binary of immigrants versus born UK
+  mutate(gen = recode(gen,
+                         "1" = "First Generation",
+                         "2" = "UK Born")) %>% 
+  mutate(gen = as.character(gen)) %>% 
   unite(genethnic, ethnic, gen,  sep = "-", remove = FALSE) %>% 
   unite(sexethnic, sex, ethnic, sep = "-", remove = FALSE) %>% 
-  unite(ethnicsex, ethnic, sex, sep = "-", remove = FALSE)
+  unite(ethnicsex, ethnic, sex, sep = "-", remove = FALSE) %>% 
+  mutate(gor_dv = recode(gor_dv,
+                         "1" = "North East",
+                         "2" = "North West",
+                         "3" = "Yorkshire and Humberside",
+                         "4" = "East Midlands",
+                         "5" = "West Midlands",
+                         "6" = "East of England",
+                         "7" = "London",
+                         "8" = "South East",
+                         "9" = "South West",
+                         "10" = "Wales",
+                         "11" = "Scotland",
+                         "12" = "Northern Ireland",
+                         "-9" = "missing"))
+
 
 str(sumsubstat)
 sumsubstat %>% 
@@ -276,13 +295,14 @@ summary(genethnic, text = TRUE)
 # write2word(meanstats , "meanstats.doc")
 write2html(genethnic, "genethnic.html")
 
-sexethnic <-arsenal::tableby(ethnicsex ~ fb + se_ee + meanfinnow + meanfinfut, data = sumsubstat, control = mycontrols)
-labels(sexethnic) <-  c(fb = "Entered Parenthood", se_ee = "PJI", meanfinnow = "Present Financial Outlook", meanfinfut = "Future Financial Outlook")
+sexethnic <-arsenal::tableby(ethnicsex ~ gen + fb + se_ee + meanfinnow + meanfinfut, data = sumsubstat, control = mycontrols)
+labels(sexethnic) <-  c(gen = "Generation", fb = "Entered Parenthood", se_ee = "PJI", meanfinnow = "Present Financial Outlook", meanfinfut = "Future Financial Outlook")
 # jbsec = "Job Security", edu_cat = "Educational Attainment", combo = "Partnership, Partner's Job Status")
 summary(sexethnic, text = TRUE)
 # as.data.frame(meanstats)
 # write2word(meanstats , "meanstats.doc")
 write2html(sexethnic, "sexethnic.html")
+write2pdf(sexethnic, "sexethnic.pdf")
 
 sumsubstat %>% 
   count(generation)
@@ -329,8 +349,31 @@ gensubpop <- sumsubstat %>%
 
 gorsubpop <- sumsubstat %>% 
   group_by(gor_dv, sex) %>% 
-  summarise(meanfinnow = mean(meanfinnow), meanfinfut = mean(meanfinfut), meanpji = mean(se_ee), meanfb = mean(fb))
+  summarise(meanfinnow = mean(meanfinnow), meanfinfut = mean(meanfinfut), meanpji = mean(se_ee), meanfb = mean(fb)) %>% 
+  mutate(gor_dv = recode(gor_dv,
+                         "1" = "North East",
+                         "2" = "North West",
+                         "3" = "Yorkshire and Humberside",
+                         "4" = "East Midlands",
+                         "5" = "West Midlands",
+                         "6" = "East of England",
+                         "7" = "London",
+                         "8" = "South East",
+                         "9" = "South West",
+                         "10" = "Wales",
+                         "11" = "Scotland",
+                         "12" = "Northern Ireland",
+                         "-9" = "missing"))
 
+geostat <-arsenal::tableby(gor_dv ~ sex + fb + se_ee + meanfinnow + meanfinfut, data = sumsubstat, control = mycontrols)
+labels(geostat) <-  c(sex = "Sex", fb = "Entered Parenthood", se_ee = "PJI", meanfinnow = "Present Financial Outlook", meanfinfut = "Future Financial Outlook")
+# jbsec = "Job Security", edu_cat = "Educational Attainment", combo = "Partnership, Partner's Job Status")
+summary(geostat, text = TRUE)
+# as.data.frame(meanstats)
+# write2word(meanstats , "meanstats.doc")
+write2html(geostat, "geostat.html")
+  
+  
 gensubpop %>% 
   ggplot(aes(meanpji, meanfb)) +
   geom_point(aes(color = factor(ethnic), shape = factor(gen)), size = 6) +
