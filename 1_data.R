@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 25.01.2020
-#Last Updated: 27.01.2021
+#Last Updated: 16.03.2021
 
 library(tidyverse)
 library(haven)
@@ -90,6 +90,8 @@ a_parent <- read_dta("S:/Questionnaires/UKHLS/Understanding_)Societyw1-9_Special
 annual_his <- read_dta("S:/Questionnaires/UKHLS/stata_work_life_histories/UKHLS Annual History.dta")
 life_his <- read_dta("S:/Questionnaires/UKHLS/stata_work_life_histories/UKHLS Life History.dta")
 edu_his <- read_dta("S:/Questionnaires/UKHLS/stata_work_life_histories/UKHLS Education History.dta")
+#Left Full Time Education
+left_edu <- read_dta("S:/Questionnaires/UKHLS/stata_work_life_histories/Left Full Time Education.dta")
 # edu_his_var <- read_dta("S:/Questionnaires/UKHLS/stata_work_life_histories/Education Variables - Cleaned.dta")
 
 

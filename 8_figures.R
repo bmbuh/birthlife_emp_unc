@@ -57,7 +57,7 @@ surv %>%
   scale_fill_brewer(palette = "Dark2") +
   theme(aspect.ratio = 1) +
   labs(fill = "Sex", caption = "Not shown, 0 = continuously employed") +
-  xlab("Persistent Joblessness Index: 1 = Continuously Jobless") + 
+  xlab("Persistent Joblessness Index: 1 = Continuously Jobless") +
   ggtitle("Truncated Persistent Joblessness Index", subtitle =  "UKHLS = Measured 9 months before first birth") +
   facet_wrap(~sex) +
   ggsave("pji_hist_sex_final.png")
