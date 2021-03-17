@@ -4,6 +4,8 @@
 
 # install.packages("lme4")
 # install.packages("survey")
+# install.packages("jtools")
+install.packages("ggstance")
 
 library(data.table)
 library(padr)
@@ -24,6 +26,7 @@ library(sjPlot)
 
 library(lme4)
 library(survey)
+library(jtools)
 
 ###########################################################################
 # Discrete Time Model -----------------------------------------------------
@@ -44,8 +47,25 @@ dth2 <- svyglm(event ~ time1, design = des, family = "binomial")
 summary(dth2)
 
 coxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee , data = surv, cluster = pidp, method = "exact")
-\
 
+
+testglm <- glm(formula = event ~time2,
+               family = binomial(link = "cloglog"),
+               data = surv)
+
+summary(testglm)
+#The strong relationship between time 2 and event in this models
+#signifies that the baseline hazard is the same for all individuals ( :-) )
+
+summ(testglm, exp = TRUE) #takes a minute to process
+
+testglm2 <- glm(formula = event ~time2 + se_ee,
+               family = binomial(link = "cloglog"),
+               data = surv)
+summary(testglm2)
+summ(testglm2, exp = TRUE) #takes a minute to process
+summ(testglm2, exp = TRUE, scale = TRUE)
+plot_summs(surv, exp = T, scale = T)
 
 
 

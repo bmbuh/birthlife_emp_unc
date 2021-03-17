@@ -228,6 +228,33 @@ summary(fcoxph)
 mparcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + agemn + agesq + finnow.imp + finfut.imp + edu_cat + combo, data = msurv, cluster = pidp, method = "breslow")
 summary(mcoxph)
 
+mnumsurv <- substat %>% #data set for men
+  filter(sex == 1)
+
+fnumsurv <- substat %>% #data set for women
+  filter(sex == 2)
+
+###Testing changing the subjective measure to quant
+numcoxph <-  coxph(formula = Surv(time1, time2, event) ~ se_ee + agemn + agesq + finnow.num + finfut.num + edu_cat, data = substat, cluster = pidp, method = "breslow")
+summary(numcoxph)
+
+mnumsurv <- substat %>% #data set for men
+  filter(sex == 1)
+
+fnumsurv <- substat %>% #data set for women
+  filter(sex == 2)
+
+fnumcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.num + finfut.num + ridge(jbsec,scale = TRUE) + agemn + agesq +  edu_cat, data = fnumsurv, cluster = pidp, method = "breslow")
+summary(fnumcoxph)
+mnumcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.num + finfut.num + ridge(jbsec,scale = TRUE) + agemn + agesq +  edu_cat, data = mnumsurv, cluster = pidp, method = "breslow")
+summary(mnumcoxph)
+fnumcoxphpar <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.num + finfut.num + ridge(jbsec,scale = TRUE) + agemn + agesq +  edu_cat + combo, data = fnumsurv, cluster = pidp, method = "breslow")
+summary(fnumcoxphpar)
+mnumcoxphpar <- coxph(formula = Surv(time1, time2, event) ~ se_ee +  finnow.num + finfut.num + ridge(jbsec,scale = TRUE) + agemn + agesq +  edu_cat + combo, data = mnumsurv, cluster = pidp, method = "breslow")
+summary(mnumcoxphpar)
+
+
+
 #Kaplan-Meier Non-paramedic analysis of sex
 survsex <- survfit(Surv(time1, time2, event) ~ strata(sex), data = surv, cluster = pidp)
 summary(survsex)
@@ -387,6 +414,54 @@ plot_models(mspparcoxph, fspparcoxph,
             #colors  = c("#2E9FDF", "#E7B800"), #in case you wanna change to the gold blue set
             p.shape = TRUE,
             grid = TRUE)
+
+### Figures for quant subj 
+
+plot_models(mnumcoxph, fnumcoxph, 
+            title = "Hazard Ratios",
+            m.labels = c("Men", "Women"),
+            legend.title = "Model",
+            axis.labels = c(
+              # "Married - unknown", "Married - non-employed","Married - employed",
+              # "Cohab - non-employed", "Cohab - employed","Single",
+              "Edu. Low", "Edu. Medium", "Edu. High",
+              "Age Squared", "Age, in months",
+              "Job security",
+              #"Fut. Fin. 'Worse off'", "Fut. Fin. 'Better off'",
+              "Future Financial Sit",
+              "Present Financial Sit", 
+              "PJI"),
+             # "Pres. Fin. 'Finding it very difficult'","Pres. Fin. 'Finding it quite difficult'", "Pres. Fin. 'Just getting by'","Pres. Fin. 'Doing alright'", "PJI"),
+            axis.lim = c(0.5, 1.5),
+            dot.size = 6,
+            #colors  = c("#2E9FDF", "#E7B800"), #in case you wanna change to the gold blue set
+            p.shape = TRUE,
+            grid = TRUE)
+
+save_plot("numcox.png")
+
+plot_models(mnumcoxphpar, fnumcoxphpar, 
+            title = "Hazard Ratios",
+            m.labels = c("Men", "Women"),
+            legend.title = "Model",
+            axis.labels = c(
+              "Married - unknown", "Married - non-employed","Married - employed",
+              "Cohab - non-employed", "Cohab - employed","Single",
+              "Edu. Low", "Edu. Medium", "Edu. High",
+              "Age Squared", "Age, in months",
+              "Job security",
+              #"Fut. Fin. 'Worse off'", "Fut. Fin. 'Better off'",
+              "Future Financial Sit",
+              "Present Financial Sit", 
+              "PJI"),
+            # "Pres. Fin. 'Finding it very difficult'","Pres. Fin. 'Finding it quite difficult'", "Pres. Fin. 'Just getting by'","Pres. Fin. 'Doing alright'", "PJI"),
+            axis.lim = c(0.2, 2),
+            dot.size = 6,
+            #colors  = c("#2E9FDF", "#E7B800"), #in case you wanna change to the gold blue set
+            p.shape = TRUE,
+            grid = TRUE)
+
+save_plot("numcoxpar.png")
 
 #Kaplan-Meier non-paramedic analysis total model
 # spsurvsex <- survfit(Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + agemn + agesq + edu_cat, data = spsurv, cluster = pidp)

@@ -95,7 +95,7 @@ surv %>%
   ggplot(aes(wave, fill = finnow.imp)) +
   geom_bar(position = "fill")+
   theme(aspect.ratio = 1) +
-  scale_fill_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "OrRd") +
   scale_x_continuous(breaks = seq(2, 10, by = 2)) +
   labs(fill = "finnow") +
   ylab("Percentage")+
@@ -107,10 +107,11 @@ surv %>%
   ggsave("finnow_surv.png")
 
 surv %>% 
+  mutate(finfut.imp = fct_relevel(finfut.imp, c("Better off", "About the same", "Worse off"))) %>% 
   ggplot(aes(wave, fill = finfut.imp)) +
   geom_bar(position = "fill")+
   theme(aspect.ratio = 1) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "RdPu") +
   scale_x_continuous(breaks = seq(2, 10, by = 2)) +
   labs(fill = "finfut") +
   ylab("Percentage")+
@@ -119,7 +120,7 @@ surv %>%
   ggtitle("Future Financial Situation", subtitle =  "Sample - waves 1 to 10") +
   # facet_wrap(~sex) +
   labs(caption = "Conducted annually; Wave 1: 2009-2011") +
-  ggsave("finfut_surv.png")
+  ggsave("finfut_surv.png", dpi = "retina")
 
 spsurv %>% 
   filter(wave == 2 | wave == 4 | wave == 6 | wave == 8 | wave == 10) %>% 
@@ -180,7 +181,10 @@ substat <- surv %>%
                              "2" = "0",
                              "1" = "-1",
                              "3" = "1")) %>% 
-  mutate(finfut.num = as.integer(finfut.num))
+  mutate(finfut.num = as.integer(finfut.num)) %>% 
+  fill(jbsec, .direction = "downup") %>% #Note this si done for quick testing on the past slide. Consider its use!!!
+  mutate(jbsec = fct_relevel(jbsec, c("3 non-employed", "1 likely", "2 unlikely"))) %>%
+  mutate(jbsec2 = as.numeric(jbsec))
 
 str(substat)
 
