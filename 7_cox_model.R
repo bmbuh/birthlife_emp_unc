@@ -239,10 +239,15 @@ numcoxph <-  coxph(formula = Surv(time1, time2, event) ~ se_ee + agemn + agesq +
 summary(numcoxph)
 
 mnumsurv <- substat %>% #data set for men
-  filter(sex == 1)
+  filter(sex == 1) %>% 
+  mutate(combo = fct_relevel(combo, c("single-unknown", "cohab-employed", "cohab-non-employed", "cohab-unknown", 
+                                      "married-employed", "married-non-employed", "married-unknown")))
+  
 
 fnumsurv <- substat %>% #data set for women
-  filter(sex == 2)
+  filter(sex == 2) %>% 
+mutate(combo = fct_relevel(combo, c("single-unknown", "cohab-employed", "cohab-non-employed", "cohab-unknown", 
+                                                       "married-employed", "married-non-employed", "married-unknown")))
 
 fnumcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.num + finfut.num + ridge(jbsec,scale = TRUE) + agemn + agesq +  edu_cat, data = fnumsurv, cluster = pidp, method = "breslow")
 summary(fnumcoxph)
@@ -446,16 +451,16 @@ plot_models(mnumcoxphpar, fnumcoxphpar,
             legend.title = "Model",
             axis.labels = c(
               "Married - unknown", "Married - non-employed","Married - employed",
-              "Cohab - non-employed", "Cohab - employed","Single",
+             "Cohab - unknown", "Cohab - non-employed", "Cohab - employed",
               "Edu. Low", "Edu. Medium", "Edu. High",
               "Age Squared", "Age, in months",
               "Job security",
-              #"Fut. Fin. 'Worse off'", "Fut. Fin. 'Better off'",
+            #   #"Fut. Fin. 'Worse off'", "Fut. Fin. 'Better off'",
               "Future Financial Sit",
-              "Present Financial Sit", 
+              "Present Financial Sit",
               "PJI"),
             # "Pres. Fin. 'Finding it very difficult'","Pres. Fin. 'Finding it quite difficult'", "Pres. Fin. 'Just getting by'","Pres. Fin. 'Doing alright'", "PJI"),
-            axis.lim = c(0.2, 2),
+            axis.lim = c(0.9, 15),
             dot.size = 6,
             #colors  = c("#2E9FDF", "#E7B800"), #in case you wanna change to the gold blue set
             p.shape = TRUE,

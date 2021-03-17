@@ -5,7 +5,7 @@
 # install.packages("lme4")
 # install.packages("survey")
 # install.packages("jtools")
-install.packages("ggstance")
+# install.packages("ggstance")
 
 library(data.table)
 library(padr)
@@ -27,6 +27,7 @@ library(sjPlot)
 library(lme4)
 library(survey)
 library(jtools)
+library(ggstance)
 
 ###########################################################################
 # Discrete Time Model -----------------------------------------------------
@@ -59,15 +60,22 @@ summary(testglm)
 
 summ(testglm, exp = TRUE) #takes a minute to process
 
-testglm2 <- glm(formula = event ~time2 + se_ee,
+testglm2 <- glm(formula = event ~time2 + se_ee + finnow.num + finfut.num,
                family = binomial(link = "cloglog"),
-               data = surv)
+               data = substat)
 summary(testglm2)
 summ(testglm2, exp = TRUE) #takes a minute to process
 summ(testglm2, exp = TRUE, scale = TRUE)
 plot_summs(surv, exp = T, scale = T)
 
+testmultglm <- glmer(formula = event ~time2 + se_ee + finnow.num + finfut.num + 
+                       agemn + agesq + combo + (1|pidp),
+                     family = binomial(cloglog),
+                     data = substat,
+                     control = glmerControl(optimizer = "bobyqa", 
+                                            optCtrl = list(maxfun = 2e5)))
 
+summary(testmultglm)
 
 # Test finished education
 

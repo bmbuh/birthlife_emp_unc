@@ -51,11 +51,13 @@ surv %>%
   mutate(sex = recode(sex,
                         "1" = "Men",
                         "2" = "Women")) %>% 
-  dplyr::filter(cutsamp == TRUE, se_ee != 0) %>% 
+  dplyr::filter(cutsamp == TRUE, se_ee > 0) %>% 
   ggplot(aes(se_ee, fill = fbyes)) +
   geom_histogram(binwidth = 0.05) +
   scale_fill_brewer(palette = "Dark2") +
   theme(aspect.ratio = 1) +
+  scale_x_continuous(breaks = c(0.01, 0.25, 0.5, 0.75, 1.0)) +
+  #xlim(0.01, 1.00) +
   labs(fill = "Sex", caption = "Not shown, 0 = continuously employed") +
   xlab("Persistent Joblessness Index: 1 = Continuously Jobless") +
   ggtitle("Truncated Persistent Joblessness Index", subtitle =  "UKHLS = Measured 9 months before first birth") +
