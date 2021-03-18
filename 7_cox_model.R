@@ -313,10 +313,12 @@ fspsurv <- spsurv %>% #data set for women
   filter(sex == 2)
 
 #Women without partner variables
-fspcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec, theta = 12, scale = TRUE) + agemn + agesq + edu_cat, data = fspsurv, cluster = pidp, method = "breslow")
+fspcoxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee + finnow.imp + finfut.imp + ridge(jbsec) + agemn + agesq + edu_cat + combo, data = fspsurv, cluster = pidp, method = "breslow")
 summary(fspcoxph)
 testph <- cox.zph(fspcoxph)
+summary <- (testph)
 ggcoxzph(testph) #shows a chart for testing the prop hazard assumption. The close the line is to 0 slope the strong the assumption
+#ggsave("phassumption.png")
 zp <- cox.zph(fspcoxph, transform= function(time) log(time +20))
 plot(zp[1])
 abline(0,0, col=2)
