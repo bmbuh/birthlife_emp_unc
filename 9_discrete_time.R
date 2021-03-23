@@ -68,31 +68,38 @@ summ(testglm2, exp = TRUE) #takes a minute to process
 summ(testglm2, exp = TRUE, scale = TRUE)
 plot_summs(surv, exp = T, scale = T)
 
-testmultglm <- glmer(formula = event ~time2 + se_ee + finnow.num + finfut.num + 
-                       agemn + agesq + combo + (1|pidp),
+testmultglm <- glmer(formula = event ~ t2 + se_ee + finnow.num + finfut.num + (1|pidp),
                      family = binomial(cloglog),
-                     data = substat,
+                     data = surv2,
                      control = glmerControl(optimizer = "bobyqa", 
                                             optCtrl = list(maxfun = 2e5)))
 
 summary(testmultglm)
 
-# Test finished education
+#Test with newly transformed times
 
-edu_his_cut <- edu_his %>% 
-  dplyr::select(pidp, start_date, end_date) %>% 
-  group_by(pidp) %>% 
-  mutate(spellnum = row_number()) %>% 
-  arrange(pidp, desc(spellnum)) %>% 
-  mutate(resnum = row_number()) %>% 
-  filter(resnum == 1) %>% 
-  dplyr::select(pidp, end_date)
+coxph <- coxph(formula = Surv(t1, t2, event) ~ se_ee + agemn + agesq + finnow.num + finfut.num + edu_cat, data = surv2, cluster = pidp, method = "breslow")
+summary(coxph)
+testph <- cox.zph(coxph)
+summary(testph)
 
-surv_edu <- surv %>% 
-  left_join(., edu_his_cut, by = "pidp") %>% 
-  mutate(gap = as.duration(startdate %--% end_date) / dmonths(1))
-  
-  
+kmtest <- survfit(Surv(t1, t2, event) ~ strata (sex), data = surv2, cluster = pidp)
+summary(kmtest)
+plot(kmtest)
+
+ggsurvplot(kmtest, size = 1,   # change line size
+           #ylim = c(0.69,1),
+           # palette = c("#E7B800", "#2E9FDF"),# custom color palettes
+           conf.int = TRUE,          # Add confidence interval
+           # pval = TRUE,              # Add p-value
+           risk.table = TRUE,        # Add risk table
+           # risk.table.col = "strata",# Risk table color by groups
+           legend.labs =
+           c("Women", "Men"),    # Change legend labels
+           risk.table.height = 0.25, # Useful to change when you have multiple groups
+           ggtheme = theme_bw()      # Change ggplot2 theme
+           ) 
+#+ labs(caption = "Survival probability cut at 0.7")
   
   
   

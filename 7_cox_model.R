@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 17.02.2021
-#Last Updated: 04.03.2021
+#Last Updated: 23.03.2021
 
 # install.packages("zoo")
 # install.packages("survminer")
@@ -148,13 +148,45 @@ com_panel6 <- com_panel5 %>%
   mutate(test2 = ifelse(test <= 0, 1, 0)) %>% 
   ungroup() %>% 
   mutate(time2 = test2 + time2) %>% 
-  dplyr::select(-test, -test2)
+  dplyr::select(-test, -test2) 
 
 
 #Save and load the combined individual data file as an RDS
-saveRDS(com_panel6, file = "surv.rds")
+#saveRDS(com_panel6, file = "surv.rds") #If rerunning all code this needs to be uncommented
 surv <- file.choose()
 surv <- readRDS(surv)
+
+###########################################################################
+# Retrofit missing times and variables into "surv" ------------------------
+###########################################################################
+
+#The following things have been added
+#1. changes times for start of education
+#2. add a numerical variable for the subjective measures
+#3. Add the objective job measures from the script 6-1
+
+
+surv2 <- surv %>% 
+  left_join(., edu_adj, by = c("pidp", "wave")) %>% 
+  mutate(finnow.imp = fct_relevel(finnow.imp, c("5 Finding it very difficult", "4 Finding it quite difficult",
+                                                "3 Just getting by", "2 Doing alright", "1 Living comfortably"))) %>%
+  mutate(finnow.num = as.numeric(finnow.imp)) %>% 
+  #I change the scale of finfut to be centered at 0
+  mutate(finfut.imp = fct_relevel(finfut.imp, c( "Worse off", "About the same", "Better off"))) %>% 
+  mutate(finfut.num = as.numeric(finfut.imp)) %>% 
+  mutate(finfut.num = recode(finfut.num,
+                             "2" = "0",
+                             "1" = "-1",
+                             "3" = "1")) %>% 
+  mutate(finfut.num = as.integer(finfut.num)) %>% 
+  fill(jbsec, .direction = "downup") %>% #Note this si done for quick testing on the past slide. Consider its use!!!
+  mutate(jbsec = fct_relevel(jbsec, c("3 non-employed", "1 likely", "2 unlikely"))) %>%
+  mutate(jbsec.num = as.numeric(jbsec)) %>% 
+  left_join(., obj_measure, by = c("pidp", "wave"))
+  
+
+
+
 
 ###########################################################################
 # Cox Prop Haz Model ------------------------------------------------------

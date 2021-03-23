@@ -172,6 +172,7 @@ write2word(desstats , "desstats .doc")
 #Categorical variables are changed to numeric
 
 #I start by reversing the scale of finnow
+#This step has been moved to script 7
 substat <- surv %>% 
   mutate(finnow.imp = fct_relevel(finnow.imp, c("5 Finding it very difficult", "4 Finding it quite difficult",
                                                 "3 Just getting by", "2 Doing alright", "1 Living comfortably"))) %>%

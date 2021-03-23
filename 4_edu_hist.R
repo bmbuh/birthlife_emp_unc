@@ -124,7 +124,7 @@ surv_edu3 <- surv_edu2 %>%
 str(surv_edu3)
 
 edu_adj <- surv_edu3 %>% 
-  dplyr::select(pidp, t1, t2)
+  dplyr::select(pidp, wave, t1, t2)
 
 saveRDS(edu_adj, file = "edu_adj.rds")
 edu_adj <- file.choose()
