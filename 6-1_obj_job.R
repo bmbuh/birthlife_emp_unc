@@ -99,11 +99,57 @@ obj_measure <-
   relocate("wave", .after = "pidp") %>%
   relocate("hhorig", .after = "wave") %>% 
   arrange(pidp, wave) %>% 
-  filter(hhorig <= 2 | hhorig == 7)  #This filters out non-UKHLS Wave 1 respondents
-
+  filter(hhorig <= 2 | hhorig == 7) %>%   #This filters out non-UKHLS Wave 1 respondents
+  mutate(jbhrs = ifelse(jbhrs <= -1 , NA, jbhrs)) %>% 
+  mutate(parttime = ifelse(jbhrs < 35, 1, 0)) %>% #This is based on the definition by the UK Government
+  mutate(jbstat = ifelse(jbstat <= -1, NA, jbstat))
+  
+  
+  
+  
 str(obj_measure)  
 
 saveRDS(obj_measure, file = "obj_measure.rds")
 obj_measure <- file.choose()
 obj_measure <- readRDS(obj_measure)
 
+
+obj_measure2 <- obj_measure %>% 
+  mutate(jbhrs = ifelse(jbhrs <= -1 , NA, jbhrs)) %>% 
+  mutate(parttime = ifelse(jbhrs < 35, 1, 0)) %>% 
+  mutate(jbstat = ifelse(jbstat <= -1, NA, jbstat)) %>% 
+  mutate(employed = ifelse(jbstat == 1 | jbstat == 2, 1, 0)) %>% 
+  mutate(jbstat = recode(jbstat,
+                        "1" = "Self-employed",
+                        "2" = "Paid employed",
+                        "3" = "Unemployed",
+                        "4" = "Retired",
+                        "5" = "Maternity leave",
+                        "6" = "Family care",
+                        "7" = "Full-time student",
+                        "8" = "Sick/disabled",
+                        "9" = "Govt training scheme",
+                        "10" = "Unpaid fam bus",
+                        "11" = "Apprenticeship",
+                        "97" = "Something else")) %>% 
+  mutate(jbot = ifelse(jbot < 0, NA, jbot)) %>% 
+  mutate(jbterm1= ifelse(jbterm1 < 0, NA, ifelse(jbterm1 == 1, 1, 0))) %>% 
+  rename("permcon" = "jbterm1") %>% 
+  mutate(jbsect = ifelse(jbsect < 0, NA, ifelse(jbsect == 1, 1, 0))) %>%
+  rename("priv" = "jbsect") %>% 
+  mutate(jbsectpub = ifelse(jbsectpub < 0, NA, jbsectpub)) %>% 
+  mutate(jbsat = ifelse(jbsat < 0, NA, jbsat)) %>%  #7 point Likert scale
+  mutate(permcon = as.factor(permcon)) %>% 
+  mutate(priv = as.factor(priv))
+  
+  
+  str(obj_measure2)
+  
+  
+  obj_measure2 %>% 
+    count(permcon)
+  
+  
+  obj_measure2 %>% 
+  ggplot(aes(jbsat, fill = priv)) + 
+    geom_bar(position = "fill")
