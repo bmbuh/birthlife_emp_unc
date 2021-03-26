@@ -6,7 +6,7 @@
 # install.packages("survey")
 # install.packages("jtools")
 # install.packages("ggstance")
-install.packages("joots") #for plotting visualisation of parameter effects
+# install.packages("joots") #for plotting visualisation of parameter effects
 
 library(data.table)
 library(padr)
@@ -29,7 +29,7 @@ library(lme4)
 library(survey)
 library(jtools)
 library(ggstance)
-library(joots)
+#library(joots) not available for this version of R
 
 ###########################################################################
 # Discrete Time Model -----------------------------------------------------
@@ -65,13 +65,13 @@ summ(testglm, exp = TRUE) #takes a minute to process
 
 
 
-testglm2 <- glm(formula = event ~t2 + se_ee + finnow.num*employed + finfut.num*employed,
+testglm2 <- glm(formula = event ~t2 + se_ee + finnow.num*employed + finfut.num*employed + edu_cat,
                family = binomial(link = "cloglog"),
                data = surv2)
 summary(testglm2)
 summ(testglm2, exp = TRUE) #takes a minute to process
 summ(testglm2, exp = TRUE, scale = TRUE)
-plot_summs(surv, exp = T, scale = T)
+# plot_summs(surv, exp = T, scale = T) uses package "joots" not available for this R version
 
 
 ###########################################################################
@@ -91,16 +91,25 @@ surv2 %>%
   geom_smooth()
 
 
+testmultglm_baseline <- glmer(formula = event ~ t2 + (1|pidp),
+                               family = binomial(cloglog),
+                               data = surv2,
+                               control = glmerControl(optimizer = "bobyqa",
+                                                      optCtrl = list(maxfun = 2e5)))
 
+summary(testmultglm_baseline)
 
-
-testmultglm <- glmer(formula = event ~ t2 + se_ee + finnow.num*employed + finfut.num*employed + edu_cat + (1|pidp),
+#The similarity between the AIC in this model and the above GLM model suggest this "Basic Frailty Model" is unneccary 
+testmultglm <- glmer(formula = event ~ t2 + se_ee*t2 + finnow.num*employed + finfut.num*employed + edu_cat + (1|pidp),
                      family = binomial(cloglog),
                      data = surv2,
                      control = glmerControl(optimizer = "bobyqa",
                                             optCtrl = list(maxfun = 2e5))) #This is to control for the warning "Model is nearly unidentifiable"
 
 summary(testmultglm)
+
+#Likelihood Ratio Test
+anova(testmultglm_baseline, testmultglm, test = "Chisq")
 
 #Test with newly transformed times
 
