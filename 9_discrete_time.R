@@ -6,6 +6,7 @@
 # install.packages("survey")
 # install.packages("jtools")
 # install.packages("ggstance")
+install.packages("joots") #for plotting visualisation of parameter effects
 
 library(data.table)
 library(padr)
@@ -28,6 +29,7 @@ library(lme4)
 library(survey)
 library(jtools)
 library(ggstance)
+library(joots)
 
 ###########################################################################
 # Discrete Time Model -----------------------------------------------------
@@ -60,25 +62,49 @@ summary(testglm)
 
 summ(testglm, exp = TRUE) #takes a minute to process
 
-testglm2 <- glm(formula = event ~time2 + se_ee + finnow.num + finfut.num,
+
+
+
+testglm2 <- glm(formula = event ~t2 + se_ee + finnow.num*employed + finfut.num*employed,
                family = binomial(link = "cloglog"),
-               data = substat)
+               data = surv2)
 summary(testglm2)
 summ(testglm2, exp = TRUE) #takes a minute to process
 summ(testglm2, exp = TRUE, scale = TRUE)
 plot_summs(surv, exp = T, scale = T)
 
-testmultglm <- glmer(formula = event ~ t2 + se_ee + finnow.num + finfut.num + (1|pidp),
+
+###########################################################################
+# glmer discrete time models ----------------------------------------------
+###########################################################################
+
+#first step is to plot the Baseline Gompertz Regression model
+
+surv2 %>%
+  group_by(t2) %>%
+  summarise(event = sum(event),
+            total = n()) %>%
+  mutate(hazard = event/total) %>%
+  ggplot(aes(x = t2, 
+             y = log(-log(1-hazard)))) +
+  geom_point() +
+  geom_smooth()
+
+
+
+
+
+testmultglm <- glmer(formula = event ~ t2 + se_ee + finnow.num*employed + finfut.num*employed + edu_cat + (1|pidp),
                      family = binomial(cloglog),
                      data = surv2,
-                     control = glmerControl(optimizer = "bobyqa", 
-                                            optCtrl = list(maxfun = 2e5)))
+                     control = glmerControl(optimizer = "bobyqa",
+                                            optCtrl = list(maxfun = 2e5))) #This is to control for the warning "Model is nearly unidentifiable"
 
 summary(testmultglm)
 
 #Test with newly transformed times
 
-coxph <- coxph(formula = Surv(t1, t2, event) ~ se_ee + agemn + agesq + finnow.num + finfut.num + edu_cat, data = surv2, cluster = pidp, method = "breslow")
+coxph <- coxph(formula = Surv(t1, t2, event) ~ tt(se_ee) + agemn + agesq + finnow.num*employed + finfut.num*employed + edu_cat, data = surv2, cluster = pidp, method = "breslow")
 summary(coxph)
 testph <- cox.zph(coxph)
 summary(testph)

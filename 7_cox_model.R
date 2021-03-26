@@ -152,7 +152,7 @@ com_panel6 <- com_panel5 %>%
 
 
 #Save and load the combined individual data file as an RDS
-#saveRDS(com_panel6, file = "surv.rds") #If rerunning all code this needs to be uncommented
+saveRDS(com_panel6, file = "surv.rds") #If rerunning all code this needs to be uncommented
 surv <- file.choose()
 surv <- readRDS(surv)
 
@@ -182,11 +182,65 @@ surv2 <- surv %>%
   fill(jbsec, .direction = "downup") %>% #Note this si done for quick testing on the past slide. Consider its use!!!
   mutate(jbsec = fct_relevel(jbsec, c("3 non-employed", "1 likely", "2 unlikely"))) %>%
   mutate(jbsec.num = as.numeric(jbsec)) %>% 
-  left_join(., obj_measure, by = c("pidp", "wave"))
+  left_join(., obj_measure2, by = c("pidp", "wave")) %>% 
+  group_by(pidp) %>% 
+  fill(employed, .direction = "down") %>% 
+  ungroup() %>% 
+  mutate(neg = ifelse(t2 < 0, 1, 0)) %>% 
+  mutate(negstu = ifelse(neg == 1 & jbstat == "Full-time student", 1, 0)) %>% 
+  filter(negstu == 0, t2 > -13) %>%  #Removes students with reporting errors on finishing full-time education and people with an error bigger than 1 year
+  mutate(t2 = ifelse(t2 < 0, 0, t2)) #changes errors smaller than 1 year to a t2 of 0
+
+#There is clearly many people who have periods of being a full-time student after finishing their formal education
+surv2 %>% 
+  count(neg)
   
+saveRDS(surv2, file = "surv2.rds")
+surv2 <- file.choose()
+surv2 <- readRDS(surv2)
 
 
+####Testing to deal with the negative t2 numbers
+#Looking at negative values in my t2 distribution
 
+negt2 <- surv2 %>% 
+  filter(t2 <= 0) %>% 
+  mutate(cutoff = ifelse(t2 > -12, 0, 1))
+
+#10 births happen in "negative time"
+#There are 2341 observations with negative time
+#full-time students account for 2032 of these - to me this means that the self-report end of education 
+#is off and the fulltime student observations should be thrown out
+negt2 %>% 
+  count(event)
+
+#7 events occur for full-time 
+negt2 %>% 
+  count(jbstat, event)
+
+summary(negt2$t2)
+
+#an almost perfect even spread have less than 1 year off
+negt2 %>% 
+  count(cutoff)
+
+#The histogram shows that most errors are clustered around 0, 12, and 24 months
+#most likely there is a small mismatching months or false year reporting
+negt2 %>% 
+  ggplot(aes(t2)) +
+  geom_histogram(binwidth = 2)
+
+surv2 %>% 
+  filter(t2 < 0) %>% 
+  ggplot(aes(t2)) +
+  geom_histogram(binwidth = 2)
+
+negt2_2 <- negt2 %>% 
+  filter(jbstat != "Full-time student")
+
+negt2_2 %>% 
+  count(cutoff)
+  
 
 ###########################################################################
 # Cox Prop Haz Model ------------------------------------------------------
