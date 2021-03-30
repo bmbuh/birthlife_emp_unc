@@ -7,6 +7,7 @@
 # install.packages("jtools")
 # install.packages("ggstance")
 # install.packages("joots") #for plotting visualisation of parameter effects
+# install.packages("broom.mixed")
 
 library(data.table)
 library(padr)
@@ -29,49 +30,230 @@ library(lme4)
 library(survey)
 library(jtools)
 library(ggstance)
-#library(joots) not available for this version of R
+# library(joots) #not available for this version of R
+library(broom.mixed)
 
 ###########################################################################
-# Discrete Time Model -----------------------------------------------------
+# Discrete Time Model First Test ------------------------------------------
 ###########################################################################
 
-surv <- file.choose()
-surv <- readRDS(surv)
-
-survcut <- surv %>% 
-  dplyr::select(pidp, time1, event)
+# surv <- file.choose()
+# surv <- readRDS(surv)
+# 
+# survcut <- surv %>% 
+#   dplyr::select(pidp, time1, event)
 
 #The model is not converging. Look into what can be done about this!
-dth <- glmer(event ~ time1 + (1 + time1|pidp),  data = survcut, family = "binomial")
-summary(dth)
-
-des <- svydesign(ids = ~pidp, data = surv)
-dth2 <- svyglm(event ~ time1, design = des, family = "binomial")
-summary(dth2)
-
-coxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee , data = surv, cluster = pidp, method = "exact")
-
-
-testglm <- glm(formula = event ~time2,
-               family = binomial(link = "cloglog"),
-               data = surv)
-
-summary(testglm)
-#The strong relationship between time 2 and event in this models
-#signifies that the baseline hazard is the same for all individuals ( :-) )
-
-summ(testglm, exp = TRUE) #takes a minute to process
+# dth <- glmer(event ~ time1 + (1 + time1|pidp),  data = survcut, family = "binomial")
+# summary(dth)
+# 
+# des <- svydesign(ids = ~pidp, data = surv)
+# dth2 <- svyglm(event ~ time1, design = des, family = "binomial")
+# summary(dth2)
+# 
+# coxph <- coxph(formula = Surv(time1, time2, event) ~ se_ee , data = surv, cluster = pidp, method = "exact")
 
 
+############################################################################
+# Loading data Surv2 (with subj/obj) ---------------------------------------
+############################################################################
 
 
-testglm2 <- glm(formula = event ~t2 + se_ee + finnow.num*employed + finfut.num*employed + edu_cat,
+surv2 <- file.choose()
+surv2 <- readRDS(surv2)
+
+substat <- surv %>% 
+  mutate(finnow.imp = fct_relevel(finnow.imp, c("5 Finding it very difficult", "4 Finding it quite difficult",
+                                                "3 Just getting by", "2 Doing alright", "1 Living comfortably"))) %>%
+  mutate(finnow.num = as.numeric(finnow.imp)) %>% 
+  #I change the scale of finfut to be centered at 0
+  mutate(finfut.imp = fct_relevel(finfut.imp, c( "Worse off", "About the same", "Better off"))) %>% 
+  mutate(finfut.num = as.numeric(finfut.imp)) %>% 
+  mutate(finfut.num = recode(finfut.num,
+                             "2" = "0",
+                             "1" = "-1",
+                             "3" = "1")) %>% 
+  mutate(finfut.num = as.integer(finfut.num)) %>% 
+  fill(jbsec, .direction = "downup") %>% #Note this si done for quick testing on the past slide. Consider its use!!!
+  mutate(jbsec = fct_relevel(jbsec, c("3 non-employed", "1 likely", "2 unlikely"))) %>%
+  mutate(jbsec2 = as.numeric(jbsec))
+
+str(substat)
+
+surv3 <- surv2 %>% 
+  mutate(gor_dv = as.character(gor_dv)) %>% 
+  #Create categories for ethnicity based on Kulu&Hannemann2016
+  mutate(ethnic = ifelse(racel_dv == 1, 1, #english, scottish, welsh, ni
+                         ifelse(racel_dv == 2 | racel_dv == 3 | racel_dv == 4, 2, #other white
+                                ifelse(racel_dv == 9, 3, #indian
+                                       ifelse(racel_dv == 10, 4, #pakistani
+                                              ifelse(racel_dv == 11, 5, #bangladeshi
+                                                     ifelse(racel_dv == 14, 7, #carribean
+                                                            ifelse(racel_dv == 12 | racel_dv == 13, 6, #other asian
+                                                                   ifelse(racel_dv == 15, 8, 9))))))))) %>% #african or other
+  mutate(ethnic = as.character(ethnic)) %>%  
+  mutate(ethnic = recode(ethnic,
+                         "1" = "UK",
+                         "2" = "Other White",
+                         "3" = "Indian",
+                         "4" = "Pakistani",
+                         "5" = "Bangladeshi",
+                         "6" = "Other Asian",
+                         "7" = "Caribbean",
+                         "8" = "African",
+                         "9" = "Mixed/Other")) %>%
+  mutate(ethnic = fct_relevel(ethnic, c( "UK",
+                                         "Other White",
+                                         "Indian",
+                                         "Pakistani",
+                                         "Bangladeshi",
+                                         "Other Asian",
+                                         "Caribbean",
+                                         "African",
+                                         "Mixed/Other"))) %>% 
+  mutate(gen = ifelse(generation == 1, 1, 2)) %>% #Creates a binary of immigrants versus born UK
+  mutate(gen = recode(gen,
+                      "1" = "First Generation",
+                      "2" = "UK Born")) %>% 
+  mutate(gen = as.character(gen)) %>% 
+  unite(genethnic, ethnic, gen,  sep = "-", remove = FALSE) %>% 
+  unite(sexethnic, sex, ethnic, sep = "-", remove = FALSE) %>% 
+  unite(ethnicsex, ethnic, sex, sep = "-", remove = FALSE) %>% 
+  mutate(gor_dv = recode(gor_dv,
+                         "1" = "North East",
+                         "2" = "North West",
+                         "3" = "Yorkshire and Humberside",
+                         "4" = "East Midlands",
+                         "5" = "West Midlands",
+                         "6" = "East of England",
+                         "7" = "London",
+                         "8" = "South East",
+                         "9" = "South West",
+                         "10" = "Wales",
+                         "11" = "Scotland",
+                         "12" = "Northern Ireland",
+                         "-9" = "missing"))
+
+
+str(surv3)
+
+surv4 <- surv3 %>% 
+  filter(t2 > 400, event == 1)
+
+surv4 %>% 
+  count(event)
+
+
+###########################################################################
+# Testing Gompertz GLM Model ----------------------------------------------
+###########################################################################
+
+#Creating a baseline to see the effect of the covariants
+baselineglm <- glm(formula = event ~ t2,
                family = binomial(link = "cloglog"),
                data = surv2)
-summary(testglm2)
-summ(testglm2, exp = TRUE) #takes a minute to process
-summ(testglm2, exp = TRUE, scale = TRUE)
-# plot_summs(surv, exp = T, scale = T) uses package "joots" not available for this R version
+
+summary(baselineglm)
+#The strong relationship between t2 and event in this models
+#signifies that the baseline hazard is the same for all individuals ( :-) )
+
+summ(baselineglm, exp = TRUE) #takes a minute to process
+
+
+
+#Running the full Gompertz model
+#First plots to see the effect of covariants
+#Sex and time
+surv2 %>%
+  filter(t2 <400) %>% 
+  mutate(sex = as.character(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women")) %>% 
+  group_by(t2, sex) %>%
+  summarise(event = sum(event),
+            total = n()) %>%
+  mutate(hazard = event/total) %>%
+  ggplot(aes(x = t2, 
+             y = log(-log(1-hazard)),
+             col = sex)) +
+  geom_point() +
+  geom_smooth() +
+  labs(col = "Sex", caption = "Time beyond 400 months cut as few events occur") +
+  ylab("Hazard") +
+  xlab("Months since end of formal education") +
+  ggsave("glm_hazard_sex.png")
+
+surv2 %>%
+  group_by(t2, edu_cat) %>%
+  summarise(event = sum(event),
+            total = n()) %>%
+  mutate(hazard = event/total) %>%
+  ggplot(aes(x = t2, 
+             y = log(-log(1-hazard)),
+             col = edu_cat)) +
+  geom_point() +
+  geom_smooth() +
+  ylab("Hazard") +
+  xlab("Months since end of formal education")
+
+testglm <- glm(formula = event ~ t2 + agemn + agesq + se_ee + finnow.num*employed + finfut.num*employed + edu_cat,
+                family = binomial(link = "cloglog"),
+                data = surv2)
+testglm2 <- glm(formula = event ~ t2 + agesq + se_ee + finnow.num*employed + finfut.num*employed + edu_cat,
+               family = binomial(link = "cloglog"),
+               data = surv2)
+
+summary(testglm)
+summ(testglm, exp = TRUE) #exp = TRUE means that we want exponentiated estimates
+summ(testglm, exp = TRUE, scale = TRUE) #Creates a scale effect using the SD (aka how much individual things effect the hazard)
+plot_summs(testglm, exp = T, scale = T)
+plot_summs(testglm2, exp = T, scale = T) #Note: "agemn" is so important that in order to see variation I needed to remove it
+
+#Likelihood Ratio Test
+anova(baselineglm, testglm, test = "Chisq")
+
+
+###########################################################################
+# Gender Specific models --------------------------------------------------
+###########################################################################
+
+surv2m <- surv2 %>% filter(sex==1) %>%  mutate(edu_cat = fct_relevel(edu_cat, c("other", "high", "medium", "low")))
+surv2f <- surv2 %>% filter(sex==2) %>%  mutate(edu_cat = fct_relevel(edu_cat, c("other", "high", "medium", "low")))
+
+mglm <- glm(formula = event ~ t2 + agemn + agesq + se_ee + finnow.num*employed + finfut.num*employed + edu_cat,
+               family = binomial(link = "cloglog"),
+               data = surv2m)
+summary(mglm)
+fglm <- glm(formula = event ~ t2 + agemn + agesq + se_ee + finnow.num*employed + finfut.num*employed + edu_cat,
+            family = binomial(link = "cloglog"),
+            data = surv2f)
+summary(fglm)
+
+
+
+plot_models(mglm, fglm, 
+            title = "Hazard Ratios",
+            m.labels = c("Men", "Women"),
+            legend.title = "Model",
+            axis.labels = c(
+             "finfut.num:employed", "finnow.num:employed",
+            #   # "Married - unknown", "Married - non-employed","Married - employed",
+            #   # "Cohab - non-employed", "Cohab - employed","Single",
+              "Edu. Low", "Edu. Medium", "Edu. High",
+              # "Job security",
+              "Future Financial Sit",
+              "Employed",
+              "Present Financial Sit",
+              "PJI",
+              "Age Squared", "Age, in months", "Time"),
+            axis.lim = c(0.5, 1.4),
+            dot.size = 6,
+            #colors  = c("#2E9FDF", "#E7B800"), #in case you wanna change to the gold blue set
+            p.shape = TRUE,
+            grid = TRUE)
+
+ggsave("glm_m_f.png")
 
 
 ###########################################################################
@@ -109,7 +291,7 @@ testmultglm <- glmer(formula = event ~ t2 + se_ee*t2 + finnow.num*employed + fin
 summary(testmultglm)
 
 #Likelihood Ratio Test
-anova(testmultglm_baseline, testmultglm, test = "Chisq")
+anova(baselineglm, testglm, testmultglm, test = "Chisq")
 
 #Test with newly transformed times
 
@@ -130,11 +312,11 @@ ggsurvplot(kmtest, size = 1,   # change line size
            risk.table = TRUE,        # Add risk table
            # risk.table.col = "strata",# Risk table color by groups
            legend.labs =
-           c("Women", "Men"),    # Change legend labels
+           c("Men", "Women"),    # Change legend labels
            risk.table.height = 0.25, # Useful to change when you have multiple groups
            ggtheme = theme_bw()      # Change ggplot2 theme
            ) 
-#+ labs(caption = "Survival probability cut at 0.7")
+
   
   
   
