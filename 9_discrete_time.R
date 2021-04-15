@@ -163,6 +163,7 @@ summ(baselineglm, exp = TRUE) #takes a minute to process
 
 #Running the full Gompertz model
 #First plots to see the effect of covariants
+#Model Fit
 #Sex and time
 surv2 %>%
   filter(t2 <400) %>% 
@@ -184,6 +185,7 @@ surv2 %>%
   xlab("Months since end of formal education") +
   ggsave("glm_hazard_sex.png")
 
+#Education and Time Model Fit
 surv2 %>%
   group_by(t2, edu_cat) %>%
   summarise(event = sum(event),
@@ -196,6 +198,32 @@ surv2 %>%
   geom_smooth() +
   ylab("Hazard") +
   xlab("Months since end of formal education")
+
+#Fit of Age and Education
+surv2 %>%
+  group_by(agemn, edu_cat) %>%
+  summarise(event = sum(event),
+            total = n()) %>%
+  mutate(hazard = event/total) %>%
+  ggplot(aes(x = agemn, 
+             y = log(-log(1-hazard)),
+             col = edu_cat)) +
+  geom_point() +
+  geom_smooth()
+
+#Fit of Time since Edu and finnow
+surv2 %>%
+  group_by(t2, finnow.num) %>%
+  summarise(event = sum(event),
+            total = n()) %>%
+  mutate(hazard = event/total) %>%
+  ggplot(aes(x = t2, 
+             y = log(-log(1-hazard)))) +
+  geom_point() +
+  geom_smooth()
+
+
+
 
 testglm <- glm(formula = event ~ t2 + agemn + agesq + se_ee + finnow.num*employed + finfut.num*employed + edu_cat,
                 family = binomial(link = "cloglog"),
