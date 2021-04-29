@@ -65,17 +65,27 @@ surv2 <- readRDS(surv2)
 
 surv2 %>% count(edu_cat)
 
+#"surv3" is for modifications made on this script
 #For modification of variables
 surv3 <- surv2 %>% 
-  filter(edu_cat != "other") %>% 
+  filter(edu_cat != "other") %>% #I made the decision to remove other category as it is mainly people who were not raised in the UK
   mutate(worse = ifelse(finfut.num == -1, 1, 0)) %>%  #A binary varible for people who think their finances will get worse
-  mutate(comf = ifelse(finnow.num > 2, 1, 0)) #Creates a binary for positive versus negative current financial stability
+  mutate(comf = ifelse(finnow.num > 2, 1, 0)) %>%  #Creates a binary for positive versus negative current financial stability
+  mutate(employed = ifelse(is.na(employed), 0, employed))
+  
+  
+#Create separate data sets for men and women
+#Removes "other" educational level
+survm <- surv3 %>% filter(edu_cat != "other", sex == 1)
+survf <- surv3 %>% filter(edu_cat != "other", sex == 2)
 
+# surv2m <- surv2 %>% filter(sex==1) %>%  mutate(edu_cat = fct_relevel(edu_cat, c("other", "high", "medium", "low")))
+# surv2f <- surv2 %>% filter(sex==2) %>%  mutate(edu_cat = fct_relevel(edu_cat, c("other", "high", "medium", "low")))
 
 ###TO DO
 #Descriptive statistics of the sample
 mycontrols <- tableby.control(test = FALSE)
-surv2stats <-arsenal::tableby(sex ~ se_ee + finnow.imp + finfut.imp + jbsec + edu_cat + combo, data = surv2, control = mycontrols)
+surv2stats <-arsenal::tableby(sex ~ se_ee + finnow.imp + finfut.imp + jbsec + edu_cat + combo, data = surv3, control = mycontrols)
 labels(surv2stats) <-  c(se_ee = "PJI", finnow.imp = "Present Financial Outlook", finfut.imp = "Future Financial Outlook",
                         jbsec = "Job Security", edu_cat = "Educational Attainment", combo = "Partnership, Partner's Job Status")
 summary(surv2stats)
@@ -168,21 +178,11 @@ write2word(surv2stats, "surv2stats.doc")
 #   count(event)
 # 
 # 
-# ###########################################################################
-# # Testing Gompertz GLM Model ----------------------------------------------
-# ###########################################################################
+###########################################################################
+# Graphing relationship of Hazard, Time & Covariate -----------------------
+###########################################################################
 
-#Creating a baseline to see the effect of the covariants
-baselineglm <- glm(formula = event ~ t2 + sex,
-               family = binomial(link = "cloglog"),
-               data = surv2)
-
-summary(baselineglm)
-#The strong relationship between t2 and event in this models
-#signifies that the baseline hazard is the same for all individuals ( :-) )
-
-summ(baselineglm, exp = TRUE) #takes a minute to process
-
+###The Following graph the relationship between the hazard, time, and covariate
 #Looking at the visual relationship between the birth hazard and time since end of education
 #by sex
 surv2 %>%
@@ -295,8 +295,6 @@ surv3 %>%
   facet_wrap(~sex)
 
 
-
-
 #Fit of Age and Education
 surv2 %>%
   group_by(agemn, edu_cat) %>%
@@ -324,6 +322,20 @@ survm %>%
 
 
 
+############################################################################
+## Testing Gompertz GLM Model ----------------------------------------------
+############################################################################
+
+#Creating a baseline to see the time since education and event
+baselineglm <- glm(formula = event ~ t2,
+                   family = binomial(link = "cloglog"),
+                   data = surv3)
+
+summary(baselineglm)
+#The strong relationship between t2 and event in this models
+#signifies that the baseline hazard is the same for all individuals ( :-) )
+summ(baselineglm, exp = TRUE) #takes a minute to process
+
 
 testglm <- glm(formula = event ~ t2 + agemn + agesq + se_ee + comf + worse + employed + edu_cat,
                 family = binomial(link = "cloglog"),
@@ -339,10 +351,12 @@ plot_summs(testglm, exp = T, scale = T)
 plot_summs(testglm2, exp = T, scale = T) #Note: "agemn" is so important that in order to see variation I needed to remove it
 
 #Likelihood Ratio Test
-anova(testglm2, testglm, test = "Chisq")
+anova(baselineglm, testglm, test = "Chisq")
 
+#AIC
+baselineglm$aic
 testglm$aic
-testglm2$aic
+
 
 
 plot(allEffects(testglm))
@@ -365,21 +379,11 @@ Data_DevResid %>%
   geom_point()
 
 ###########################################################################
-# Gender Specific models --------------------------------------------------
+# Gender Specific models & Model fit testing ------------------------------
 ###########################################################################
 
 
-#Create separate data sets for men and women
-#Removes "other" educational level
-survm <- surv2 %>% filter(edu_cat != "other", sex == 1) %>% mutate(employed = ifelse(is.na(employed), 0, employed))
-survf <- surv2 %>% filter(edu_cat != "other", sex == 2)
-
-surv2m <- surv2 %>% filter(sex==1) %>%  mutate(edu_cat = fct_relevel(edu_cat, c("other", "high", "medium", "low")))
-surv2f <- surv2 %>% filter(sex==2) %>%  mutate(edu_cat = fct_relevel(edu_cat, c("other", "high", "medium", "low")))
-
-survm %>% count(employed)
-
-#Model for men
+####Model for men
 baseline_mglm <- glm(formula = event ~ t2,
                      family = binomial(link = "cloglog"),
                      data = survm)
@@ -393,8 +397,53 @@ summ(mglm, exp = TRUE, scale = TRUE) #exp = TRUE means that we want exponentiate
 #Likelihood Ratio Test
 anova(baseline_mglm, mglm, test = "Chisq")
 
+#AIC
+baseline_mglm$aic
+mglm$aic
 
-#Model for women
+#Deviance Residuals
+Data_DevResid_m <- tibble(Pred_Haz = predict(mglm, type = "response"),
+                        Event = pull(survm, event),
+                        ID = pull(survm, pidp))%>%
+  mutate(DevRes = if_else(Event == 0, 
+                          -sqrt(-2*log(1-Pred_Haz)),
+                          sqrt(-2*log(Pred_Haz))))
+
+Data_DevResid_m %>%
+  ggplot(aes(x = ID, y = DevRes)) +
+  geom_point() +
+  ggtitle("Deviance Residuals Men - end of education") +
+  ggsave("dev_resid_men_endedu.png")
+
+
+#######
+#Test Age versus end of education
+mglmage <- glm(formula = event ~ agemn + agesq + se_ee + finnow.imp*employed + finfut.imp*employed + edu_cat,
+               family = binomial(link = "cloglog"),
+               data = survm)
+
+anova(mglm, mglmage, test = "Chisq")
+
+mglm$aic
+mglmage$aic
+
+Data_DevResid_m_age <- tibble(Pred_Haz = predict(mglmage, type = "response"),
+                              Event = pull(survm, event),
+                              ID = pull(survm, pidp))%>%
+  mutate(DevRes = if_else(Event == 0, 
+                          -sqrt(-2*log(1-Pred_Haz)),
+                          sqrt(-2*log(Pred_Haz))))
+
+Data_DevResid_m_age %>%
+  ggplot(aes(x = ID, y = DevRes)) +
+  geom_point() +
+  ggtitle("Deviance Residuals Men - age") +
+  ggsave("dev_resid_men_age.png")
+
+
+
+###########################################################################
+####Model for women
 baseline_fglm <- glm(formula = event ~ t2,
                      family = binomial(link = "cloglog"),
                      data = survf)
@@ -404,7 +453,62 @@ fglm <- glm(formula = event ~ t2 + agemn + agesq + se_ee + finnow.imp*employed +
             data = survf)
 summary(fglm)
 summ(fglm, exp = TRUE, scale = TRUE) #exp = TRUE means that we want exponentiated estimates
+
+#Likelihood Ratio Test
 anova(baseline_fglm, fglm, test = "Chisq")
+
+#AIC
+baseline_fglm$aic
+fglm$aic
+
+#Deviance Residuals
+Data_DevResid_f <- tibble(Pred_Haz = predict(fglm, type = "response"),
+                        Event = pull(survf, event),
+                        ID = pull(survf, pidp))%>%
+  mutate(DevRes = if_else(Event == 0, 
+                          -sqrt(-2*log(1-Pred_Haz)),
+                          sqrt(-2*log(Pred_Haz))))
+
+Data_DevResid_f %>%
+  ggplot(aes(x = ID, y = DevRes)) +
+  geom_point() +
+  ggtitle("Deviance Residuals Women - time since end of education") +
+  ggsave("dev_resid_women_endedu.png")
+
+
+#######
+#Test Age versus end of education
+fglmage <- glm(formula = event ~ agemn + agesq + se_ee + finnow.imp*employed + finfut.imp*employed + edu_cat,
+            family = binomial(link = "cloglog"),
+            data = survf)
+
+anova(fglm, fglmage, test = "Chisq")
+
+fglm$aic
+fglmage$aic
+
+Data_DevResid_f_age <- tibble(Pred_Haz = predict(fglmage, type = "response"),
+                          Event = pull(survf, event),
+                          ID = pull(survf, pidp))%>%
+  mutate(DevRes = if_else(Event == 0, 
+                          -sqrt(-2*log(1-Pred_Haz)),
+                          sqrt(-2*log(Pred_Haz))))
+
+Data_DevResid_f_age %>%
+  ggplot(aes(x = ID, y = DevRes)) +
+  geom_point() +
+  ggtitle("Deviance Residuals Women - age") +
+  ggsave("dev_resid_women_age.png")
+
+
+
+
+###########################################################################
+# Covariate Testing -------------------------------------------------------
+###########################################################################
+
+
+
 
 ###Goodness-of-Fit tests
 #AIC Test (comparison)
@@ -412,8 +516,6 @@ testglm$aic
 mglm$aic
 fglm$aic
 
-#Likelihood Ratio Test
-anova(mglm, fglm, test = "Chisq")
 
 plot_models(mglm, fglm, 
             title = "Hazard Ratios",
@@ -439,6 +541,10 @@ plot_models(mglm, fglm,
  ggsave("glm_m_f.png")
 
 
+ 
+ 
+ 
+ 
 ###########################################################################
 # glmer discrete time models ----------------------------------------------
 ###########################################################################
@@ -458,16 +564,17 @@ surv2 %>%
 
 testmultglm_baseline <- glmer(formula = event ~ t2 + (1|pidp),
                                family = binomial(cloglog),
-                               data = surv2,
+                               data = surv3,
                                control = glmerControl(optimizer = "bobyqa",
                                                       optCtrl = list(maxfun = 2e5)))
 
 summary(testmultglm_baseline)
 
+
 #The similarity between the AIC in this model and the above GLM model suggest this "Basic Frailty Model" is unneccary 
 testmultglm <- glmer(formula = event ~ t2 + se_ee*t2 + finnow.num*employed + finfut.num*employed + edu_cat + (1|pidp),
                      family = binomial(cloglog),
-                     data = surv2,
+                     data = surv3,
                      control = glmerControl(optimizer = "bobyqa",
                                             optCtrl = list(maxfun = 2e5))) #This is to control for the warning "Model is nearly unidentifiable"
 
@@ -500,8 +607,22 @@ ggsurvplot(kmtest, size = 1,   # change line size
            ggtheme = theme_bw()      # Change ggplot2 theme
            ) 
 
-  
-  
-  
-  
 
+# jbsec stats -------------------------------------------------------------
+
+  
+  
+testemp <- surv3 %>% 
+  group_by(pidp, sex, kdob) %>% 
+  summarise(emp = mean(employed)) %>% 
+  mutate(fullemp = ifelse(emp == 1, 1, 0)) %>% 
+  ungroup() %>% 
+  mutate(fb = ifelse(is.na(kdob), 0, 1))
+
+testemp %>% count(sex, fullemp, fb)  
+
+testemp %>% summary(emp)
+
+testemp %>% 
+  ggplot(aes(x = emp)) +
+  geom_histogram(binwidth = 0.1)
