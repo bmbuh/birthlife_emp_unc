@@ -69,7 +69,7 @@ surv2 %>% count(edu_cat)
 #For modification of variables
 surv3 <- surv2 %>% 
   filter(edu_cat != "other") %>% #I made the decision to remove other category as it is mainly people who were not raised in the UK
-  mutate(worse = ifelse(finfut.num == -1, 1, 0)) %>%  #A binary varible for people who think their finances will get worse
+  mutate(worse = ifelse(finfut.num == -1, 1, 0)) %>%  #A binary variable for people who think their finances will get worse
   mutate(comf = ifelse(finnow.num > 2, 1, 0)) %>%  #Creates a binary for positive versus negative current financial stability
   mutate(employed = ifelse(is.na(employed), 0, employed))
   
@@ -337,7 +337,7 @@ summary(baselineglm)
 summ(baselineglm, exp = TRUE) #takes a minute to process
 
 
-testglm <- glm(formula = event ~ t2 + agemn + agesq + se_ee + comf + worse + employed + edu_cat,
+testglm <- glm(formula = event ~ t2 + agemn + agesq + se_ee + comf + worse*employed + edu_cat,
                 family = binomial(link = "cloglog"),
                 data = surv3)
 testglm2 <- glm(formula = event ~ t2 + agesq + se_ee + finnow.imp + worse + employed + edu_cat,
@@ -626,3 +626,29 @@ testemp %>% summary(emp)
 testemp %>% 
   ggplot(aes(x = emp)) +
   geom_histogram(binwidth = 0.1)
+
+
+
+# Subjective Measures -----------------------------------------------------
+
+surv3 %>%
+  group_by(t2, finnow.imp, employed) %>%
+  summarise(event = sum(event),
+            total = n()) %>%
+  mutate(hazard = event/total) %>%
+interaction.plot(x.factor = finnow.imp,
+                 trace.factor = employed,
+                 response = hazard,
+                 fun = median)
+
+surv3 %>% 
+  ggplot(aes(x = ))
+                 
+
+
+
+
+
+
+
+

@@ -165,3 +165,47 @@ ageedu %>%
   ggtitle("Age at First birth by Educational Attainment", subtitle =  "UKHLS = Measured 9 months before first birth") +
   facet_wrap(~sex) 
 
+
+
+###########################################################################
+# Testing for interaction employment and fin. instability -----------------
+###########################################################################
+
+#There is an issue here where I need to find if there is an interaction between
+#employment and the subjective measure
+surv3 %>% 
+  mutate(employed = recode(employed,
+                                    "0" = "non-emp",
+                                    "1" = "emp")) %>% 
+  with(tapply(event, list(comf, employed), mean))
+
+surv3 %>% 
+  count(employed, comf)
+
+#I am testing for my response variable. My response variable should be the hazard
+surv4 <- surv3 %>% 
+  mutate(fb = ifelse(is.na(kdob), 0, 1)) %>% 
+  group_by(t2) %>%
+  mutate(event = sum(event),
+            total = n()) %>%
+  mutate(hazard = log(-log(1-(event/total)))) %>% #I took this from my slide 9
+  ungroup()
+
+
+surv4 %>% 
+count(hazard)
+
+interaction.plot(x.factor = surv4$employed,
+                 trace.factor = surv4$comf,
+                 response = surv4$hazard,
+                 ylim = range (-6, -2))
+
+boxplot(hazard ~ comf * employed, data=surv4)
+
+
+
+interaction.plot(x.factor = surv4$employed,
+                 trace.factor = surv4$worse,
+                 response = surv4$hazard)
+
+boxplot(hazard ~ worse * employed, data=surv4)
