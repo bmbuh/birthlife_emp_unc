@@ -73,6 +73,9 @@ surv3 <- surv2 %>%
   mutate(comf = ifelse(finnow.num > 2, 1, 0)) %>%  #Creates a binary for positive versus negative current financial stability
   mutate(employed = ifelse(is.na(employed), 0, employed))
   
+surv3 %>% count(finnow.num)
+surv3 %>% count(finnow.imp)
+surv3 %>% count(comf)
   
 #Create separate data sets for men and women
 #Removes "other" educational level
