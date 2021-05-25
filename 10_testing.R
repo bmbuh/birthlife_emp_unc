@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 15.04.2021
-#Last Updated: 24.05.2021
+#Last Updated: 25.05.2021
 
 
 library(tidyverse)
@@ -412,3 +412,105 @@ summary(lm11)
 plot(allEffects(aov11), multiline=TRUE, ci.style="bars")
 
 # There is clearly no interaction but the trend shows that unemployment makes future perceptions worse
+
+
+
+###########################################################################
+# Covariate Testing -------------------------------------------------------
+###########################################################################
+
+surv3 %>% count(hazard)
+
+surv5 <- surv4 %>% 
+  select(pidp, wave, hazard) %>% 
+  left_join(., surv3, by = c("pidp", "wave")) %>% 
+  mutate(gor_dv = as.character(gor_dv)) %>%
+  #Create categories for ethnicity based on Kulu&Hannemann2016
+  mutate(ethnic = ifelse(racel_dv == 1, 1, #english, scottish, welsh, ni
+                         ifelse(racel_dv == 2 | racel_dv == 3 | racel_dv == 4, 2, #other white
+                                ifelse(racel_dv == 9, 3, #indian
+                                       ifelse(racel_dv == 10, 4, #pakistani
+                                              ifelse(racel_dv == 11, 5, #bangladeshi
+                                                     ifelse(racel_dv == 14, 7, #carribean
+                                                            ifelse(racel_dv == 12 | racel_dv == 13, 6, #other asian
+                                                                   ifelse(racel_dv == 15, 8, 9))))))))) %>% #african or other
+  mutate(ethnic = as.character(ethnic)) %>%
+  mutate(ethnic = recode(ethnic,
+                         "1" = "UK",
+                         "2" = "Other White",
+                         "3" = "Indian",
+                         "4" = "Pakistani",
+                         "5" = "Bangladeshi",
+                         "6" = "Other Asian",
+                         "7" = "Caribbean",
+                         "8" = "African",
+                         "9" = "Mixed/Other")) %>%
+  mutate(ethnic = fct_relevel(ethnic, c( "UK",
+                                         "Other White",
+                                         "Indian",
+                                         "Pakistani",
+                                         "Bangladeshi",
+                                         "Other Asian",
+                                         "Caribbean",
+                                         "African",
+                                         "Mixed/Other"))) %>%
+  mutate(immigrant = ifelse(generation == 1, 1, 0)) %>% #Creates a binary of immigrants versus born UK
+  # mutate(gen = recode(gen,
+  #                     "1" = "First Generation",
+  #                     "0" = "UK Born")) %>%
+  mutate(immigrant = as.character(immigrant)) %>%
+  # unite(genethnic, ethnic, gen,  sep = "-", remove = FALSE) %>%
+  # unite(sexethnic, sex, ethnic, sep = "-", remove = FALSE) %>%
+  # unite(ethnicsex, ethnic, sex, sep = "-", remove = FALSE) %>%
+  mutate(gor_dv = recode(gor_dv,
+                         "1" = "North East",
+                         "2" = "North West",
+                         "3" = "Yorkshire and Humberside",
+                         "4" = "East Midlands",
+                         "5" = "West Midlands",
+                         "6" = "East of England",
+                         "7" = "London",
+                         "8" = "South East",
+                         "9" = "South West",
+                         "10" = "Wales",
+                         "11" = "Scotland",
+                         "12" = "Northern Ireland",
+                         "-9" = "missing")) %>% 
+  ungroup()
+###There is an issue with the event variable after the grouping that needs to be fixed
+
+surv5 %>% count(immigrant)
+
+# Immigrant
+aov12 <- aov(hazard ~ immigrant, data=surv5)
+summary(aov12)
+TukeyHSD(aov12)
+# Ethnicity
+aov13 <- aov(hazard ~ ethnic, data=surv5)
+summary(aov13)
+TukeyHSD(aov13)
+
+testglm <- glm(formula = event ~ t2 + agemn + agesq + se_ee + comf + worse + employed + edu_cat + ethnic*immigrant,
+               family = binomial(link = "cloglog"),
+               data = surv5)
+summary(testglm)
+summ(testglm, exp = TRUE, scale = TRUE) #exp = TRUE means that we want exponentiated estimates
+
+
+interaction.plot(x.factor = surv5$immigrant,
+                 trace.factor = surv5$ethnic,
+                 response = surv5$hazard)
+
+boxplot(hazard ~ ethnic*immigrant, data=surv5)
+
+
+aov14 <- aov(hazard ~ ethnic*immigrant, data=surv5)
+summary(aov14)
+model.tables(aov14, type = "means")
+lm14 <- lm(hazard ~ ethnic*immigrant, data=surv5)
+summary(lm14)
+
+plot(allEffects(aov14), multiline=TRUE, ci.style="bars")
+
+
+
