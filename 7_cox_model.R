@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 17.02.2021
-#Last Updated: 23.03.2021
+#Last Updated: 01.06.2021
 
 # install.packages("zoo")
 # install.packages("survminer")
@@ -59,6 +59,12 @@ enddate4 <-
   left_join(enddate, enddate3, by = c("pidp", "wave")) %>% 
   rename("startdate" = "intdate")
 
+#In order to make sure I can quickly manipulate dates in the future for needed changes in dataset structure
+saveRDS(enddate4, file = "intdates.rds")
+intdates <- file.choose()
+intdates <- readRDS(intdates)
+
+#Combining the start/end dates back into the dataset
 com_panel2 <- com_panel %>% 
   mutate(imp = ifelse(is.na(dvage), 1, 0)) %>% 
   left_join(., enddate4, by = c("pidp", "wave")) %>% 
