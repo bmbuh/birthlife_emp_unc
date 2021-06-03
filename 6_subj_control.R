@@ -202,6 +202,16 @@ ggplot(unique(test), aes(x = as.factor(hhorig)))+
   stat_count()+
   labs(x='sample group', y= 'count of sample')
 
+test3 <- all_sample %>% 
+  group_by(pidp) %>% 
+  mutate(wavenum = row_number()) %>% 
+  filter(wavenum == 1, dvage <= 50) %>% 
+  ungroup
+
+test3 %>% 
+  count(sex)
+  
+
 
 ###########################################################################
 # Creating panel data -----------------------------------------------------

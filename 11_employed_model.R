@@ -2,6 +2,10 @@
 #Started on: 26.05.2021
 #Last Updated: 03.06.2021
 
+# install.packages("huxtable")
+# install.packages("sandwich")
+# install.packages("modelsummary")
+
 surv5 <- file.choose()
 surv5 <- readRDS(surv5)
 
@@ -13,6 +17,9 @@ library(data.table)
 library(tidyverse)
 library(haven)
 library(effects)
+library(huxtable) #for the export_summs function
+library(sandwich) #for the export_summs function, robust SE
+library(modelsummary)
 
 surv5 %>% count(jbsec)
 
@@ -199,18 +206,18 @@ survmemp <- survemp %>% filter(edu_cat != "other", sex == 1)
 #Women Dataframe
 survfemp <- survemp %>% filter(edu_cat != "other", sex == 2)
 
-empmglm <- glm(formula = event2 ~ t2_3 + agemn + agesq + se_ee + jbsec.dummy*permcon + edu_cat,
+empmglm <- glm(formula = event2 ~ t2_3 + se_ee + jbsec.dummy*permcon + edu_cat + agemn + agesq,
                family = binomial(link = "cloglog"),
                data = survmemp)
 summary(empmglm)
-summ(empmglm, exp = TRUE, scale = TRUE) #exp = TRUE means that we want exponentiated estimates
+summ(empmglm, exp = TRUE) #exp = TRUE means that we want exponentiated estimates
 
 
-empfglm <- glm(formula = event2 ~ t2_3 + agemn + agesq + se_ee +  jbsec.dummy*permcon +  edu_cat,
+empfglm <- glm(formula = event2 ~ t2_3 + se_ee +  jbsec.dummy*permcon +  edu_cat + agemn + agesq,
                family = binomial(link = "cloglog"),
                data = survfemp)
 summary(empfglm)
-summ(empfglm, exp = TRUE, scale = TRUE) #exp = TRUE means that we want exponentiated estimates
+summ(empfglm, exp = TRUE) #exp = TRUE means that we want exponentiated estimates
 
 ###########################################################################
 # Model output ------------------------------------------------------------
@@ -232,10 +239,42 @@ mycontrols <- tableby.control(test = FALSE)
 desstats <-arsenal::tableby(fb ~ t2 + sex + se_ee + jbsec.dummy + permcon + edu_cat, data = statsurvemp, control = mycontrols)
 labels(desstats ) <-  c(sex = "Sex", se_ee = "PJI", finnow.imp = "Present Financial Outlook", finfut.imp = "Future Financial Outlook",
                         jbsec = "Job Security", edu_cat = "Educational Attainment", combo = "Partnership, Partner's Job Status")
-summary(desstats )
+summary(desstats)
 #write2word(desstats , "desstats .doc")
 
+#Analytical output
+row <- data.frame("Coefficients" = "Reference category: High",
+                  "Model 1" = "",
+                  "Model 2" = "")
+attr(row, "position") <- 7
 
+
+
+export_summs(empmglm, empfglm,
+             model.names = c("Men","Women"),
+             stars = c(`***` = 0.001, `**` = 0.01, `*` = 0.05, '+' = 0.1), 
+             # coefs = c("Time since Education" = "t2_3",
+             #            "PJI" = "se_ee",
+             #            "Job security" = "jbsec.dummy1",
+             #           "Permanent contract" = "permcon1",
+             #           "Education - Low" = "edu_catlow",
+             #           "Education - Medium" = "edu_catmedium",
+             #           "Age in Months" = "agemn",
+             #           "Age Squared" = "agesq"),
+             exp = TRUE)
+
+modelsummary(list(empmglm, empfglm), 
+             exp = TRUE, 
+             stars = TRUE,
+             coef_rename = c("Time since Education" = "t2_3",
+                       "PJI" = "se_ee",
+                       "Job security" = "jbsec.dummy1",
+                       "Permanent contract" = "permcon1",
+                       "Education - Low" = "edu_catlow",
+                       "Education - Medium" = "edu_catmedium",
+                       "Age in Months" = "agemn",
+                       "Age Squared" = "agesq"),
+             add_rows = row)
 ##########################################################################
 # Transform data set to monthly observations ------------------------------
 ###########################################################################
