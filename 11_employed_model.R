@@ -1,10 +1,12 @@
 #Coded by: Brian Buh
 #Started on: 26.05.2021
-#Last Updated: 03.06.2021
+#Last Updated: 08.06.2021
 
 # install.packages("huxtable")
 # install.packages("sandwich")
 # install.packages("modelsummary")
+# install.packages("officer")
+# install.packages("flextable")
 
 surv5 <- file.choose()
 surv5 <- readRDS(surv5)
@@ -19,7 +21,10 @@ library(haven)
 library(effects)
 library(huxtable) #for the export_summs function
 library(sandwich) #for the export_summs function, robust SE
+library(officer) #for the export_summs function, export to word
+library(flextable) #for the export_summs function, export to word
 library(modelsummary)
+
 
 surv5 %>% count(jbsec)
 
@@ -236,56 +241,163 @@ statsurvemp <- survemp %>%
                       "2" = "Women"))
 
 mycontrols <- tableby.control(test = FALSE)
-desstats <-arsenal::tableby(fb ~ t2 + sex + se_ee + jbsec.dummy + permcon + edu_cat, data = statsurvemp, control = mycontrols)
-labels(desstats ) <-  c(sex = "Sex", se_ee = "PJI", finnow.imp = "Present Financial Outlook", finfut.imp = "Future Financial Outlook",
-                        jbsec = "Job Security", edu_cat = "Educational Attainment", combo = "Partnership, Partner's Job Status")
-summary(desstats)
-#write2word(desstats , "desstats .doc")
+empstats <-arsenal::tableby(fb ~ t2_3 + sex + se_ee + jbsec.dummy + permcon + edu_cat, data = statsurvemp, control = mycontrols)
+labels(empstats) <-  c(t2_3 = "Time since end of education (months)", sex = "Sex", se_ee = "PJI", permcon = "Permanent contract",
+                        jbsec.dummy = "Job Security", edu_cat = "Educational Attainment")
+summary(empstats)
+write2word(empstats , "empstats .docx")
 
-#Analytical output
-row <- data.frame("Coefficients" = "Reference category: High",
-                  "Model 1" = "",
-                  "Model 2" = "")
-attr(row, "position") <- 7
 
 
 
 export_summs(empmglm, empfglm,
              model.names = c("Men","Women"),
              stars = c(`***` = 0.001, `**` = 0.01, `*` = 0.05, '+' = 0.1), 
-             # coefs = c("Time since Education" = "t2_3",
-             #            "PJI" = "se_ee",
-             #            "Job security" = "jbsec.dummy1",
-             #           "Permanent contract" = "permcon1",
-             #           "Education - Low" = "edu_catlow",
-             #           "Education - Medium" = "edu_catmedium",
-             #           "Age in Months" = "agemn",
-             #           "Age Squared" = "agesq"),
-             exp = TRUE)
-
-modelsummary(list(empmglm, empfglm), 
-             exp = TRUE, 
-             stars = TRUE,
-             coef_rename = c("Time since Education" = "t2_3",
-                       "PJI" = "se_ee",
-                       "Job security" = "jbsec.dummy1",
+             coefs = c("Time since Education" = "t2_3",
+                        "PJI" = "se_ee",
+                        "Job security" = "jbsec.dummy1",
                        "Permanent contract" = "permcon1",
                        "Education - Low" = "edu_catlow",
                        "Education - Medium" = "edu_catmedium",
                        "Age in Months" = "agemn",
-                       "Age Squared" = "agesq"),
-             add_rows = row)
+                       "Age Squared" = "agesq",
+                       "jbsec:permcon" = "jbsec.dummy1:permcon1"),
+             exp = TRUE,
+             to.file = "docx",
+             file.name = "emp_model_paper1_8-6-21.docx")
+
+
+plot_summs(empmglm, empfglm,
+           model.names = c("Men", "Women"),
+           coefs = c("Time since Education" = "t2_3",
+                     "PJI" = "se_ee",
+                     "Job security" = "jbsec.dummy1",
+                     "Permanent contract" = "permcon1",
+                     "Education - Low" = "edu_catlow",
+                     "Education - Medium" = "edu_catmedium",
+                     "Age in Months" = "agemn",
+                     "Age Squared" = "agesq",
+                     "jbsec:permcon" = "jbsec.dummy1:permcon1"),
+           exp = TRUE) +
+  ggtitle("Employed Sample") +
+  ggsave("emp_model_paper1_8-6-21.png")
+
+###modelsummary regression output approach
+# row <- data.frame("Coefficients" = "Reference category: High",
+#                   "Model 1" = "",
+#                   "Model 2" = "")
+# attr(row, "position") <- 11
+# modelsummary(list(empmglm, empfglm), 
+#              output = "table.html",
+#              exp = TRUE, 
+#              stars = TRUE,
+#              coef_rename = c("t2_3" = "Time since Education",
+#                       "se_ee" =  "PJI",
+#                       "jbsec.dummy1" =  "Job security",
+#                       "permcon1"  = "Permanent contract",
+#                       "edu_catlow" = "Education - Low",
+#                       "edu_catmedium" = "Education - Medium",
+#                       "agemn" = "Age in Months",
+#                       "agesq" = "Age Squared",
+#                       "jbsec.dummy1:permcon1" = "jbsec*permcon"),
+#              add_rows = row)
+
+
+##########################################################################
+# For entire sample (fix for later open science) --------------------------
+###########################################################################
+#Men Dataframe
+survm <- surv5 %>% filter(edu_cat != "other", sex == 1) %>% ungroup()
+#Women Dataframe
+survf <- surv5 %>% filter(edu_cat != "other", sex == 2) %>% ungroup()
+
+survm %>% count(event)
+
+#Descriptive stats
+statsurv <- surv5 %>% 
+  group_by(pidp) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>% 
+  mutate(fb = ifelse(is.na(kdob), 0, 1)) %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women"))
+
+mycontrols <- tableby.control(test = FALSE)
+fullstats <-arsenal::tableby(fb ~ t2 + sex + se_ee + finnow3cat + finfut.imp + employed + edu_cat, data = statsurv, control = mycontrols)
+labels(fullstats) <-  c(t2 = "Time since end of education (months)", sex = "Sex", se_ee = "PJI", employed = "Employed",
+                       finnow3cat = "Present Finacial", finfut.imp = "Future Finacial", edu_cat = "Educational Attainment")
+summary(fullstats)
+write2word(fullstats , "fullstats .docx") 
+
+
+#Male Model
+mglm <- glm(formula = event ~ t2 + se_ee + finnow3cat*employed + finfut.imp + edu_cat + agemn + agesq,
+            family = binomial(link = "cloglog"),
+            data = survm)
+summary(mglm)
+summ(mglm, exp = TRUE) #exp = TRUE means that we want exponentiated estimates
+
+#Female Model
+fglm <- glm(formula = event ~ t2 + se_ee + finnow3cat*employed + finfut.imp + edu_cat + agemn + agesq,
+            family = binomial(link = "cloglog"),
+            data = survf)
+summary(fglm)
+summ(fglm, exp = TRUE)
+
+export_summs(mglm,fglm,
+             model.names = c("Men", "Women"),
+             stars = c(`***` = 0.001, `**` = 0.01, `*` = 0.05, '+' = 0.1), 
+             coefs = c("Time since Education" = "t2",
+                       "PJI" = "se_ee",
+                       "Finding it difficult" = "finnow3catfinddifficult",
+                       "Getting by" = "finnow3catgetby",
+                       "Employed" = "employed",
+                       "Worse off" = "finfut.impWorse off",
+                       "Better off" = "finfut.impBetter off",
+                       "Education Low" = "edu_catlow",
+                       "Education Medium" = "edu_catmedium",
+                       "Age in Months" = "agemn",
+                       "Age Squared" = "agesq",
+                       "finddifficult:employed" = "finnow3catfinddifficult:employed",
+                       "gettingby:employed" = "finnow3catgetby:employed"),
+             exp = TRUE,
+             to.file = "docx",
+             file.name = "full_model_paper1_8-6-21.docx")
+
+
+plot_summs(mglm, fglm, 
+           model.names = c("Men", "Women"),
+           coefs = c("Time since Education" = "t2",
+                     "PJI" = "se_ee",
+                     "Finding it difficult" = "finnow3catfinddifficult",
+                     "Getting by" = "finnow3catgetby",
+                     "Employed" = "employed",
+                     "Worse off" = "finfut.impWorse off",
+                     "Better off" = "finfut.impBetter off",
+                     "Education Low" = "edu_catlow",
+                     "Education Medium" = "edu_catmedium",
+                     "Age in Months" = "agemn",
+                     "Age Squared" = "agesq",
+                     "finddifficult:employed" = "finnow3catfinddifficult:employed",
+                     "gettingby:employed" = "finnow3catgetby:employed"),
+           exp = TRUE) +
+  ggsave("full_model_paper1_8-6-21.png")
+
+
 ##########################################################################
 # Transform data set to monthly observations ------------------------------
 ###########################################################################
 
 #This code is takes from script 3 to be used here if needed
-pji1 <- transform(pji_sample, from = as.Date(start_date), to = as.Date(end_date), lagfb = as.Date(lagged_kdob))
-
-pji2 <- pji1 %>%
-  dplyr::select(pidp, unemp, to, from, lagfb, age45f, age50m, sex, hhorig, dob, kdob)
-
-dt <- data.table(pji2)
-pji3 <- dt[, list(pidp, unemp, lagfb, age45f, age50m, sex, hhorig, dob, kdob, date = seq(from, to, by = "month")), by = 1:nrow(dt)] %>% 
-  mutate(age_start = (dob %--% date)/dyears(1)) %>% 
-  filter(age_start >= 16) 
+# pji1 <- transform(pji_sample, from = as.Date(start_date), to = as.Date(end_date), lagfb = as.Date(lagged_kdob))
+# 
+# pji2 <- pji1 %>%
+#   dplyr::select(pidp, unemp, to, from, lagfb, age45f, age50m, sex, hhorig, dob, kdob)
+# 
+# dt <- data.table(pji2)
+# pji3 <- dt[, list(pidp, unemp, lagfb, age45f, age50m, sex, hhorig, dob, kdob, date = seq(from, to, by = "month")), by = 1:nrow(dt)] %>% 
+#   mutate(age_start = (dob %--% date)/dyears(1)) %>% 
+#   filter(age_start >= 16) 

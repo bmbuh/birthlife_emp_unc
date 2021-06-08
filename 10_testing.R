@@ -191,6 +191,11 @@ surv4 <- surv3 %>%
   mutate(unemp = ifelse(is.na(jbstat), 0, unemp)) %>% 
   mutate(uncomf = ifelse(finnow.num <= 2, 1, 0)) %>%  #Creates a binary for positive versus negative current financial stability
   mutate(finnow3cat = ifelse(finnow.num <= 2, 1, ifelse(finnow.num == 3, 2, 3))) %>% 
+  mutate(finnow3cat = as.character(finnow3cat)) %>% 
+  mutate(finnow3cat = recode(finnow3cat,
+                         "1" = "Finding it difficult",
+                         "2" = "Getting by",
+                         "3" = "Doing fine")) %>% 
   group_by(t2) %>%
   mutate(event = sum(event),
             total = n()) %>%
@@ -422,7 +427,7 @@ plot(allEffects(aov11), multiline=TRUE, ci.style="bars")
 surv3 %>% count(hazard)
 
 surv5 <- surv4 %>% 
-  select(pidp, wave, hazard) %>% 
+  select(pidp, wave, hazard, finnow3cat) %>% 
   left_join(., surv3, by = c("pidp", "wave")) %>% 
   mutate(gor_dv = as.character(gor_dv)) %>%
   #Create categories for ethnicity based on Kulu&Hannemann2016
@@ -476,10 +481,23 @@ surv5 <- surv4 %>%
                          "11" = "Scotland",
                          "12" = "Northern Ireland",
                          "-9" = "missing")) %>% 
-  ungroup()
-###There is an issue with the event variable after the grouping that needs to be fixed
+  ungroup() %>% 
+  mutate(finnow3cat = ifelse(finnow.num <= 2, 1, ifelse(finnow.num == 3, 2, 3))) %>% 
+  mutate(finnow3cat = as.character(finnow3cat)) %>% 
+  mutate(finnow3cat = recode(finnow3cat,
+                             "1" = "finddifficult",
+                             "2" = "getby",
+                             "3" = "doingfine")) %>% 
+  mutate(finfut.imp = fct_relevel(finfut.imp, c("About the same", "Worse off","Better off"))) %>% 
+  mutate(combo = fct_relevel(combo, c("single-unknown", "cohab-employed", "cohab-non-employed", "cohab-unknown", 
+                                      "married-employed", "married-non-employed", "married-unknown")))
+  
+surv5 %>% count(finnow3cat)
+surv5 %>% count(finfut.imp)
 
-surv5 %>% count(immigrant)
+#Saved surv5 RDS for quicker usage on model running
+saveRDS(surv5, "surv5")
+
 
 # Immigrant
 aov12 <- aov(hazard ~ immigrant, data=surv5)
@@ -490,7 +508,7 @@ aov13 <- aov(hazard ~ ethnic, data=surv5)
 summary(aov13)
 TukeyHSD(aov13)
 
-testglm <- glm(formula = event ~ t2 + agemn + agesq + se_ee + comf + worse + employed + edu_cat + ethnic*immigrant,
+testglm <- glm(formula = event ~ t2 + agemn + agesq + se_ee + finnow3cat*employed + finfut.imp*employed+ edu_cat,
                family = binomial(link = "cloglog"),
                data = surv5)
 summary(testglm)
