@@ -211,14 +211,14 @@ survmemp <- survemp %>% filter(edu_cat != "other", sex == 1)
 #Women Dataframe
 survfemp <- survemp %>% filter(edu_cat != "other", sex == 2)
 
-empmglm <- glm(formula = event2 ~ t2_3 + se_ee + jbsec.dummy*permcon + edu_cat + agemn + agesq,
+empmglm <- glm(formula = event2 ~ t2_3 + se_ee + jbsec.dummy + permcon + edu_cat + agemn + agesq,
                family = binomial(link = "cloglog"),
                data = survmemp)
 summary(empmglm)
 summ(empmglm, exp = TRUE) #exp = TRUE means that we want exponentiated estimates
 
-
-empfglm <- glm(formula = event2 ~ t2_3 + se_ee +  jbsec.dummy*permcon +  edu_cat + agemn + agesq,
+survfemp %>% count(jbsec.dummy)
+empfglm <- glm(formula = event2 ~ t2_3 + se_ee +  jbsec.dummy + permcon +  edu_cat + agemn + agesq,
                family = binomial(link = "cloglog"),
                data = survfemp)
 summary(empfglm)
@@ -260,8 +260,8 @@ export_summs(empmglm, empfglm,
                        "Education - Low" = "edu_catlow",
                        "Education - Medium" = "edu_catmedium",
                        "Age in Months" = "agemn",
-                       "Age Squared" = "agesq",
-                       "jbsec:permcon" = "jbsec.dummy1:permcon1"),
+                       "Age Squared" = "agesq"),
+                       # "jbsec:permcon" = "jbsec.dummy1:permcon1"),
              exp = TRUE,
              to.file = "docx",
              file.name = "emp_model_paper1_8-6-21.docx")
@@ -334,7 +334,7 @@ write2word(fullstats , "fullstats .docx")
 
 
 #Male Model
-mglm <- glm(formula = event ~ t2 + se_ee + finnow3cat*employed + finfut.imp + edu_cat + agemn + agesq,
+mglm <- glm(formula = event ~ t2 + se_ee + finnow3cat+employed + finfut.imp + edu_cat + agemn + agesq,
             family = binomial(link = "cloglog"),
             data = survm)
 summary(mglm)
