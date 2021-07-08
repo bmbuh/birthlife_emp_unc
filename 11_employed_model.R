@@ -311,7 +311,7 @@ survm <- surv5 %>% filter(edu_cat != "other", sex == 1) %>% ungroup()
 #Women Dataframe
 survf <- surv5 %>% filter(edu_cat != "other", sex == 2) %>% ungroup()
 
-survm %>% count(event)
+
 
 #Descriptive stats
 statsurv <- surv5 %>% 
@@ -323,7 +323,8 @@ statsurv <- surv5 %>%
   mutate(sex = as.factor(sex)) %>% 
   mutate(sex = recode(sex,
                       "1" = "Men",
-                      "2" = "Women"))
+                      "2" = "Women")) %>% 
+  ungroup()
 
 mycontrols <- tableby.control(test = FALSE)
 fullstats <-arsenal::tableby(fb ~ t2 + sex + se_ee + finnow3cat + finfut.imp + employed + edu_cat, data = statsurv, control = mycontrols)
@@ -332,6 +333,7 @@ labels(fullstats) <-  c(t2 = "Time since end of education (months)", sex = "Sex"
 summary(fullstats)
 write2word(fullstats , "fullstats .docx") 
 
+statsurv %>% count(immigrant)
 
 #Male Model
 mglm <- glm(formula = event ~ t2 + se_ee + finnow3cat+employed + finfut.imp + edu_cat + agemn + agesq,

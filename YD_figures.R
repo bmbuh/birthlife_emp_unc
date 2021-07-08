@@ -53,7 +53,8 @@ surv5 %>%
   dplyr::filter(intnum == 1) %>% 
   ggplot(aes(se_ee, fill = fbyes)) +
   geom_histogram(binwidth = 0.03) +
-  annotate("text", x=.25, y=4500, size = 6, label= "0 = No Jobless Spells") +
+  annotate("text", x=.15, y=5000, size = 6, label= "First Births are concentrated here") +
+  annotate("text", x=.25, y=2000, size = 6, label= "0 = No Jobless Spells") +
   annotate("text", x=.8, y=1200, size = 6, label= "1 = Completely Jobless") +
   scale_fill_manual(values = c("#2a9d8f", "#e76f51")) +
   theme_minimal()+
@@ -65,6 +66,10 @@ surv5 %>%
         axis.text = element_text(size = 15)) +
   theme(aspect.ratio = 1) +
   labs(fill = "Births") +
+  ggtitle("Is jobless affecting the entry to parenthood?", subtitle =  "Combined duration, number and proximity of jobless spells - UKHLS Waves 1-10") +
   xlab("Persistent Joblessness Index") +
   ylab("Count")+
-  ggsave("yd_pji.png")
+  ggsave("Buh_challenge.png") #This is saved for the dataviz course June 2021
+
+# +
+#   ggsave("yd_pji.png")

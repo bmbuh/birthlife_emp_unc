@@ -222,7 +222,7 @@ write_dta(panel_pji, "panel_pji.dta")
 ###########################################################################
 
 #Last update 24.02.2021
-pji_complete <- read_dta("S:/R Files/Emp_Unc_Fertility_Birthlife/panel_pji_run.dta")
+pji_complete <- read_dta("S:/r_projects/Emp_Unc_Fertility_Birthlife/rds/panel_pji_run.dta")
 
 
 pji_dem <- pji2 %>% 
