@@ -43,50 +43,92 @@ wave_dates <- all_sample %>%
   mutate(intdate_ck = parse_date_time(intdate_ck, "my")) %>% 
   mutate(date = intdate_ck)
 
-#It is possible to add the interview dates from the all_sample 
-checkpji <- 
-  left_join(pji4, wave_dates, by = c("pidp", "date")) %>% 
-  group_by(pidp) %>% 
-  fill(c("wave", "intdate_ck","fwintvd_dv", "lwintvd_dv"), .direction = "up") %>% 
-  ungroup()
-
-checkpji %>% count(wave)
 
 
 ###########################################################################
 # PJI data transformation -------------------------------------------------
 ###########################################################################
+#pji1-pji4 help prepares the data in the same way I would need to make the time varying pji
 
-
+#preps the dates for transformation
 pji1 <- transform(pji_sample, from = as.Date(start_date), to = as.Date(end_date), lagfb = as.Date(lagged_kdob))
 
+#Selects the variables needed
 pji2 <- pji1 %>%
   dplyr::select(pidp, unemp, to, from, lagfb, age45f, age50m, sex, hhorig, dob, kdob)
 
+#Using the data.table package transforms from spells to months
 dt <- data.table(pji2)
 pji3 <- dt[, list(pidp, unemp, lagfb, age45f, age50m, sex, hhorig, dob, kdob, date = seq(from, to, by = "month")), by = 1:nrow(dt)] %>% 
   mutate(age_start = (dob %--% date)/dyears(1)) %>% 
   filter(age_start >= 16) 
 
-###Here is out problem with losing first borns
+# The transformed data creates overlapping months, removes the second month 
+#Removes individuals' histories after first birth or over 45/50
 pji4 <- pji3 %>% 
-  # mutate(date = as.POSIXct(date)) %>% 
-  # mutate(age49 = as.POSIXct(age49)) %>% 
-  # mutate(lagfb = as.POSIXct(lagfb)) %>% 
-  # mutate(dob = as.POSIXct(dob)) %>% 
-  # mutate(kdob = as.POSIXct(kdob)) %>% 
-  # mutate(diff_fb = date - kdob) %>% #test to see if the lagged dates cause the problem
-  # mutate(diff_lag = date - lagfb) %>%
-  # mutate(diff_age = date - age49) %>% 
   distinct(pidp, date, .keep_all = TRUE) %>% 
   filter(date <= lagfb | is.na(lagfb)) %>% 
   filter(case_when(sex == 1 ~ age_start <= 50, sex == 2 ~ age_start <= 45)) #Updated 24.02.21 to change cut off ages for men and women based on ONS Stats
-#filter(diff_fb <= 1| is.na(diff_fb)) %>% 
-# mutate(fb_check = diff_fb == 0) %>% 
-# filter(diff_age <= 0 | is.na(diff_age))%>% 
-# dplyr::select(-diff_fb, -diff_age)
-# There was previously a "pji5" and "pji6" which got rid of unneeded collumns and repeated rows. 
-#Those functions have been put into "pji4"
+
+
+
+# Adaptations July 2021 ---------------------------------------------------
+
+
+#It is possible to add the interview dates from the all_sample 
+checkpji <- 
+  left_join(pji4, wave_dates, by = c("pidp", "date")) %>% 
+  mutate(waveck = ifelse(!is.na(wave), wave, 0)) %>% 
+  mutate(waveck = as.character(waveck)) %>% 
+  group_by(pidp) %>% 
+  fill(c("wave", "intdate_ck","fwintvd_dv", "lwintvd_dv"), .direction = "up") %>% 
+  mutate(num = row_number()) %>% 
+  arrange(pidp, desc(num)) %>% 
+  mutate(revnum = row_number()) %>% 
+  ungroup()
+
+#There is a large amount of NA. 
+# This seems to be mainly individuals who did not appear in the UKHLS during childbearing years
+checkpji %>% count(wave)
+
+#Check for quality of sample
+#Only looks at last month available
+checkpji2 <- checkpji %>% 
+  filter(!is.na(wave)) %>% 
+  mutate(fb = ifelse(!is.na(kdob), 1, 0)) %>% 
+  mutate(fb = as.character(fb)) %>% 
+  filter(revnum == 1) 
+
+checkpji2 %>% 
+  ggplot(aes(x = num, fill = fb)) +
+  geom_bar()+
+  theme_minimal()+
+  ggsave("checkpji2_fb_distribution_13072021.png")
+#I have a left leaning distribution with a very long tail. I also have a significant number of births in month 1
+
+checkpji %>% 
+  filter(waveck != "0") %>% 
+  ggplot(aes(x = num, fill = waveck)) +
+  geom_bar()+
+  theme_minimal()+
+  ggsave("checkpji2_wave_distribution_13072021.png")
+
+#Check to see if I make an indicator of first three years, how many would I lose
+checkpji3 <- checkpji2 %>% 
+  mutate(early = ifelse(fb == 1 & num < 36, 1, 0)) %>% 
+  mutate(late = ifelse(fb == 1 & num >= 36, 1, 0))
+
+checkpji3 %>% count(early)
+checkpji3 %>% count(late)
+
+wave1check <- checkpji %>% 
+  (wave1 = ifelse(date == intdate_ck & wave == 1, 1, 0))
+  
+  
+#Checking to see interview placement in timeline
+
+
+# Back to setting up the process ------------------------------------------
 
 
 #Used to create LP (unemp) and IP (emp_ratio) vectors
