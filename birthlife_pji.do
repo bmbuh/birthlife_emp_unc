@@ -1,10 +1,11 @@
 *Coded by: Brian Buh
 *Created on: 10.02.2021
 *Updated on: 11.02.2021
+*Updated for new PJI model: 13.07.2021
 /* This do file was created to use the lpi package created by Busetta and Mendola
 The data was manipulated in R using the R files present here */
 
-cd "S:\PJI Busetta Mendola"
+cd "S:\r_projects\Emp_Unc_Fertility_Birthlife\pji_busetta_mendola"
 
 which lpi
 
@@ -22,6 +23,6 @@ rename pidp id
 rename unemp poor
 rename emp_ratio pgap
 
-lpi poor, se(se) ee(ee) se_ee(se_ee) pgap(pgap) id(id) time(yr) alpha(0.8)
+lpi poor, se(se) ee(ee) se_ee(se_ee) pgap(pgap) id(id) time(yr) alpha(1)
 
-save "S:\PJI Busetta Mendola\panel_pji_run.dta", replace
+save "S:\PJI Busetta Mendola\panel_pji_3yr_run.dta", replace
