@@ -11,6 +11,8 @@
 surv5 <- file.choose()
 surv5 <- readRDS(surv5)
 
+# saveRDS(surv5, "surv5.rds")
+
 #From script 7; allows for adding start/end dates to the data frames
 intdates <- file.choose()
 intdates <- readRDS(intdates)
