@@ -206,8 +206,8 @@ surv4 <- surv3 %>%
 
 surv4 %>% count(finnow3cat)
 
-surv4m <- surv4 %>% filter(edu_cat != "other", sex == 1)
-surv4f <- surv4 %>% filter(edu_cat != "other", sex == 2)
+surv4m <- surv4 %>% filter(sex == 1)
+surv4f <- surv4 %>% filter(sex == 2)
 
 #Interaction Test 1 - comf employed
 #
@@ -496,7 +496,7 @@ surv5 %>% count(finnow3cat)
 surv5 %>% count(finfut.imp)
 
 #Saved surv5 RDS for quicker usage on model running
-saveRDS(surv5, "surv5")
+saveRDS(surv5, "surv5.rds")
 
 
 # Immigrant

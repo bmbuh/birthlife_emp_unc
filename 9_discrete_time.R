@@ -63,24 +63,37 @@ library(effects)
 surv2 <- file.choose()
 surv2 <- readRDS(surv2)
 
+#The edu_cat hasn't be updated to have the issues fixed with isced97
 surv2 %>% count(edu_cat)
+surv2 %>% count(isced97)
+#surv3 fixes this issue by creating new variable "edu"
 
 #"surv3" is for modifications made on this script
 #For modification of variables
 surv3 <- surv2 %>% 
-  filter(edu_cat != "other") %>% #I made the decision to remove other category as it is mainly people who were not raised in the UK
+  # filter(edu_cat != "other") %>% #I made the decision to remove other category as it is mainly people who were not raised in the UK
   mutate(worse = ifelse(finfut.num == -1, 1, 0)) %>%  #A binary variable for people who think their finances will get worse
   mutate(comf = ifelse(finnow.num > 2, 1, 0)) %>%  #Creates a binary for positive versus negative current financial stability
-  mutate(employed = ifelse(is.na(employed), 0, employed))
+  mutate(employed = ifelse(is.na(employed), 0, employed)) %>% 
+  mutate(edu = case_when(
+    isced97 == 2 ~ "low",
+    isced97 == 3 | isced97 == 4  ~ "medium",
+    isced97 == 5 | isced97 == 6  ~ "high",
+    is.na(isced97) ~ "other")) %>% 
+  filter(edu != "other")
   
 surv3 %>% count(finnow.num)
 surv3 %>% count(finnow.imp)
 surv3 %>% count(comf)
-  
+surv3 %>% count(edu)
+surv3 %>% count(is.na(jbisco88_cc))
+
+
+
 #Create separate data sets for men and women
 #Removes "other" educational level
-survm <- surv3 %>% filter(edu_cat != "other", sex == 1)
-survf <- surv3 %>% filter(edu_cat != "other", sex == 2)
+survm <- surv3 %>% filter(sex == 1)
+survf <- surv3 %>% filter(sex == 2)
 
 # surv2m <- surv2 %>% filter(sex==1) %>%  mutate(edu_cat = fct_relevel(edu_cat, c("other", "high", "medium", "low")))
 # surv2f <- surv2 %>% filter(sex==2) %>%  mutate(edu_cat = fct_relevel(edu_cat, c("other", "high", "medium", "low")))

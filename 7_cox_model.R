@@ -74,18 +74,18 @@ com_panel2 <- com_panel %>%
   unite(dob, c(birthm, birthy), sep = "-") %>% #creates a dob
   mutate(dob = parse_date_time(dob, "my")) %>% 
   # mutate(age = (intdate - dob)/(365*24*60*60)) %>% #Done so I can use age at each wave
-  group_by(pidp) %>% 
+  group_by(pidp) %>%
   fill(fb_check) %>%
-  fill(dvage) %>% 
-  fill(gor_dv) %>% 
-  fill(racel_dv) %>% 
-  fill(generation) %>% 
-  fill(combo) %>% 
-  ungroup() %>% 
-  filter(fb_check == 0 | fb_check == 2) %>% #this variable takes the observed "anychild" and subtracts the binary "kdob oberseved" 1 = had child but no kdob or not had child but observed kdob
+  fill(dvage) %>%
+  fill(gor_dv) %>%
+  fill(racel_dv) %>%
+  fill(generation) %>%
+  fill(combo) %>%
+  ungroup() %>%
+  filter(fb_check == 0 | fb_check == 2) %>% #this variable takes the observed "anychild" and subtracts the binary "kdob observed" 1 = had child but no kdob or not had child but observed kdob
   # filter(case_when(sex == 1 ~ age_start <= 50, sex == 2 ~ age_start <= 45) %>% 
   dplyr::select(pidp, wave, imp, hhorig, kdob, sex, dvage, dob, racel_dv, gor_dv, ppid, marstat, parjbstat, combo, jbsec, generation,
-                edu_cat, se_ee, finnow.imp, finfut.imp, startdate, enddate)
+                edu_cat, isced97, jbisco88_cc, se_ee, finnow.imp, finfut.imp, startdate, enddate)
 
 com_panel2 %>% 
   count(combo)
@@ -141,11 +141,8 @@ com_panel5 <- com_panel4 %>%
   mutate(agemn = as.duration(dob %--% startdate) / dmonths(1)) %>% 
   mutate(agemn = round(agemn, digits = 0)) %>% 
   mutate(agesq = agemn*agemn) %>% 
-  filter(case_when(sex == 1 ~ agemn <= 600, sex == 2 ~ agemn <= 540)) #filters men over 50 and women over 45
-
-com_panel5 %>% 
-  ungroup() %>% 
-  count(combo)
+  filter(case_when(sex == 1 ~ agemn <= 600, sex == 2 ~ agemn <= 540)) %>%  #filters men over 50 and women over 45
+  ungroup()
 
 #There is an issue where some end dates are the same as the start dates because the baby was born the same month as the interview
 #This is solved by adding one month to the end date
@@ -154,8 +151,9 @@ com_panel6 <- com_panel5 %>%
   mutate(test2 = ifelse(test <= 0, 1, 0)) %>% 
   ungroup() %>% 
   mutate(time2 = test2 + time2) %>% 
-  dplyr::select(-test, -test2) 
+  dplyr::select(-test, -test2)
 
+test <- com_panel6 %>% filter(wave == 2) %>% count(jbisco88_cc)
 
 #Save and load the combined individual data file as an RDS
 saveRDS(com_panel6, file = "surv.rds") #If rerunning all code this needs to be uncommented

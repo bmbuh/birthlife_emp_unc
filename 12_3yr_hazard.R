@@ -158,21 +158,22 @@ surv10 <- surv5 %>%
   filter(t1 >= 18) %>% 
   left_join(. , pji_1.5yr_2, by = "pidp")
 
+surv5 %>% count(isced97)
 
 
-testglm3 <- glm(formula = event ~ t2 + agemn + agesq + pji3 + employed + edu_cat,
+testglm3 <- glm(formula = event ~ t2 + agemn + agesq + pji3 + employed + isced97,
                family = binomial(link = "cloglog"),
                data = surv6)
-testglm2 <- glm(formula = event ~ t2 + agemn + agesq + pji2 + employed + edu_cat,
+testglm2 <- glm(formula = event ~ t2 + agemn + agesq + pji2 + employed + isced97,
                family = binomial(link = "cloglog"),
                data = surv7)
-testglm2.5 <- glm(formula = event ~ t2 + agemn + agesq + pji2.5 + employed + edu_cat,
+testglm2.5 <- glm(formula = event ~ t2 + agemn + agesq + pji2.5 + employed + edu,
                family = binomial(link = "cloglog"),
                data = surv8)
-testglm1 <- glm(formula = event ~ t2 + agemn + agesq + pji1 + employed + edu_cat,
+testglm1 <- glm(formula = event ~ t2 + agemn + agesq + pji1 + employed + edu,
                   family = binomial(link = "cloglog"),
                   data = surv9)
-testglm1.5 <- glm(formula = event ~ t2 + agemn + agesq + pji1.5 + employed + edu_cat,
+testglm1.5 <- glm(formula = event ~ t2 + agemn + agesq + pji1.5 + employed + edu,
                 family = binomial(link = "cloglog"),
                 data = surv10)
 summ(testglm3, exp = TRUE)

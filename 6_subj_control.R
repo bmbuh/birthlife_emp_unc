@@ -18,9 +18,9 @@ a_indresp %>%
 
 #Sorting out needed variables from indresp
 #Changes in these lists allow for much quick adding and subtracting variables
-even_wave_var <- c("sex", "birthm", "birthy", "dvage", "qfhigh_dv", "racel_dv", "gor_dv", "finfut", "finnow", "hhorig", "ppid", "intdatm_dv", "intdaty_dv", "marstat_dv", "jbstat")
+even_wave_var <- c("sex", "birthm", "birthy", "dvage", "qfhigh_dv", "hiqual_dv", "racel_dv", "gor_dv", "finfut", "finnow", "hhorig", "ppid", "intdatm_dv", "intdaty_dv", "marstat_dv", "jbstat", "jbisco88_cc")
 
-odd_wave_var <- c("sex", "birthm", "birthy", "dvage", "qfhigh_dv", "racel_dv", "gor_dv", "finfut", "finnow", "hhorig", "jbsec", "ppid", "intdatm_dv", "intdaty_dv", "marstat_dv", "jbstat")
+odd_wave_var <- c("sex", "birthm", "birthy", "dvage", "qfhigh_dv", "hiqual_dv", "racel_dv", "gor_dv", "finfut", "finnow", "hhorig", "jbsec", "ppid", "intdatm_dv", "intdaty_dv", "marstat_dv", "jbstat", "jbisco88_cc")
 
 #Add the wave prefix to the variable list
 w1_even_var <- paste0('a_', even_wave_var)
@@ -43,7 +43,7 @@ w9_even_var <- paste0('i_', even_wave_var)
 
 w10_odd_var <- paste0('j_', odd_wave_var)
 
-col_order <- c("pidp", "wave", "sex", "birthm", "birthy", "dvage", "qfhigh_dv", "racel_dv", "gor_dv", "finfut", "finnow", "jbsec", "ppid", "intdatm_dv", "intdaty_dv")
+col_order <- c("pidp", "wave", "sex", "birthm", "birthy", "dvage", "qfhigh_dv", "hiqual_dv", "racel_dv", "gor_dv", "finfut", "finnow", "jbsec", "ppid", "intdatm_dv", "intdaty_dv", "jbisco88_cc")
 
 
 #Preparing the variables for merging
@@ -76,7 +76,7 @@ e_ind <- e_indresp %>%
   mutate(jbsec = NA)
 
 f_ind <- f_indresp %>% 
-  dplyr::select("pidp", w6_odd_var)%>% 
+  dplyr::select("pidp", "f_qfhighoth", w6_odd_var)%>% 
   rename_with(~ odd_wave_var[which(w6_odd_var == .x)], .cols = w6_odd_var) %>% 
   mutate(wave = 6)
 
@@ -146,7 +146,7 @@ ind_sample3 %>%
 ###########################################################################
 
 x_sample2 <- xwave %>% #not to be confused with x_sample located in scripts 2 and 3
-  dplyr::select(pidp, hhorig, generation, lwenum_dv, fwenum_dv, fwintvd_dv, lwintvd_dv, anychild_dv ) %>% 
+  dplyr::select(pidp, hhorig, generation, ukborn, lwenum_dv, fwenum_dv, fwintvd_dv, lwintvd_dv, anychild_dv) %>% 
   filter(hhorig <= 2 | hhorig == 7) %>% 
   dplyr::select(-hhorig)
 
@@ -217,6 +217,7 @@ test3 %>%
 # Creating panel data -----------------------------------------------------
 ###########################################################################
 
+#ISCED97 variable added 20.07.2021
 panel_all_sample <- all_sample %>% 
   complete(pidp, wave) %>% 
   left_join(., first_born, by = "pidp") %>% 
@@ -235,7 +236,28 @@ panel_all_sample <- all_sample %>%
     qfhigh_dv <= 6 ~ "high",
     qfhigh_dv <= 12 & qfhigh_dv >=7 ~ "medium",
     qfhigh_dv >=13 & qfhigh_dv <= 15 ~ "low")) %>% 
-  mutate(edu_cat = ifelse(is.na(edu_cat), "other", edu_cat)) #other edu_qf for people at 16, 96 or missing
+  mutate(edu_cat = ifelse(is.na(edu_cat), "other", edu_cat)) %>% #other edu_qf for people at 16, 96 or missing
+  mutate(hiqual_edit = ifelse(hiqual_dv == 1 | hiqual_dv == 2, 5.1, ifelse(hiqual_dv == 3, 3.1, ifelse(hiqual_dv == 4, 2.1, ifelse(hiqual_dv == 5, 2.1, NA))))) %>% 
+  mutate(hiqual_edit = ifelse(hiqual_edit == 2.1, 2, ifelse(hiqual_edit == 3.1, 3, ifelse(hiqual_edit == 5.1, 5, NA)))) %>% 
+  # mutate(edu = ifelse(qfhigh_dv == 96 | qfhigh_dv <= 0, hiqual_edit, qfhigh_dv)) %>% 
+  mutate(isced97 = case_when(
+    qfhigh_dv == 1 ~ "6",
+    qfhigh_dv >= 2 & qfhigh_dv <= 4 | qfhigh_dv == 6 ~ "5",
+    # qfhigh_dv == 6 ~ "5",
+    qfhigh_dv == 5 ~ "4",
+    qfhigh_dv >=7 & qfhigh_dv <= 12 ~ "3",
+    qfhigh_dv >= 13 & qfhigh_dv <= 16 ~ "2",
+    qfhigh_dv == 96 ~"96",
+    qfhigh_dv == -8 ~"-8",
+    qfhigh_dv == -9 ~"-9")) %>% 
+  mutate(isced97 = ifelse(isced97 == 96 | isced97 <= 0, hiqual_edit, isced97)) %>% 
+  mutate(immigrant = ifelse(ukborn == 5, 1, 0)) %>% 
+  mutate(immedu = ifelse(f_qfhighoth >= 1 & f_qfhighoth <= 3, 6, ifelse(f_qfhighoth == 4, 5, ifelse(f_qfhighoth == 5 | f_qfhighoth == 6, 4, 
+                                                                                                    ifelse(f_qfhighoth == 7 | f_qfhighoth == 8, 3, 
+                                                                                                           ifelse(f_qfhighoth == 9, 2, ifelse(f_qfhighoth == 10, 1, NA)))))))
+  mutate(isced97 = ifelse(is.na(isced97), immedu, isced97)) %>% 
+  mutate(isced97 = ifelse(is.na(isced97), "Not available", isced97))
+  
 
 # qfhigh_dv >= 16 & qfhigh_dv <= 0 ~ "unknown"
 
@@ -426,6 +448,9 @@ panel_all_sample_pji2 %>%
   scale_fill_brewer(palette = "Dark2") +
   theme(aspect.ratio = 1)
 
+saveRDS(imp_finnow, file = "imp_finnow.rds")
+imp_finnow <- file.choose()
+imp_finnow <- readRDS(imp_finnow)
 
 #SECOND FINFUT
 #creates a wide format for the "finfut" variable
@@ -485,6 +510,9 @@ imp_finfut <- test_finfut %>%
                       "2" = "Worse off",
                       "3" = "About the same"))
 
+saveRDS(imp_finfut, file = "imp_finfut.rds")
+imp_finfut <- file.choose()
+imp_finfut <- readRDS(imp_finfut)
 
 
 ###########################################################################

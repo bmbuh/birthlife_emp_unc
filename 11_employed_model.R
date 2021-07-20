@@ -47,12 +47,13 @@ survemp <-  surv5 %>%
   filter(!is.na(jbsec)) %>% 
   mutate(jbsec.dummy = ifelse(jbsec == "1 likely", 1, 0)) %>% #This dummy variable is for people who are likely or very likely to lose their job in the next 12 months
   mutate(jbsec.dummy = as.character(jbsec.dummy)) %>% 
-  select(-jbsec.num, -hhorig, -neg, -negstu) %>% 
+  select(-jbsec.num, -neg, -negstu) %>% 
   arrange(pidp, desc(wave)) %>% 
   filter(employed == 1) %>%  #There were still same observations for unemployed observations after making all other cuts
   group_by(pidp) %>% 
   mutate(eventcheck = row_number()) %>% #There is an issue the the event variable had some events occur in odd waves and was lost in the filtering
   mutate(event2 = ifelse(eventcheck == 1 & fb == 1, 1, 0)) %>% #"event2" is updated to make sure all births are accounted for in even waves
+  fill(permcon, .direction = "downup") %>%  
   ungroup() %>% 
   arrange(pidp, wave) %>% 
   select(-eventcheck, -gor_dv) %>% 
@@ -61,9 +62,29 @@ survemp <-  surv5 %>%
   mutate(timecheck = t2 - t2_2) %>% 
   dplyr::select(-finfut.num, -finnow.num) %>% 
   mutate(t2_3 = ifelse(timecheck >= 0, t2, t2_2)) %>% 
-  mutate(t2_3 = ifelse(is.na(t2_3), t2, t2_3))  %>% #This final number ensures that the timing of the conception is correct
-  left_join(., imp_permcon, by = c("pidp", "wave")) #This dataframe is created a bit further down but retrospectively added here to ensure there is not issues
-  
+  mutate(t2_3 = ifelse(is.na(t2_3), t2, t2_3)) %>% 
+  rename("isco88" = "jbisco88_cc") %>% 
+  mutate(isco88 = as.integer(isco88)) %>% 
+  mutate(isco = case_when(
+    isco88 >= 100 & isco88 <=199 ~ "1",
+    isco88 >= 200 & isco88 <=299 ~ "2",
+    isco88 >= 300 & isco88 <=399 ~ "3",
+    isco88 >= 400 & isco88 <=499 ~ "4",
+    isco88 >= 500 & isco88 <=599 ~ "5",
+    isco88 >= 600 & isco88 <=699 ~ "6",
+    isco88 >= 700 & isco88 <=799 ~ "7",
+    isco88 >= 800 & isco88 <=899 ~ "8",
+    isco88 >= 900 & isco88 <=999 ~ "9",
+    isco88 == 10 ~ "10",
+    isco88 < 0 ~ "NA")) %>% 
+  mutate(isco = ifelse(isco == "NA", NA, isco))
+
+# %>% #This final number ensures that the timing of the conception is correct
+  # left_join(., imp_permcon, by = c("pidp", "wave")) #This dataframe is created a bit further down but retrospectively added here to ensure there is not issues
+
+saveRDS(survemp, "survemp.rds")
+
+survemp %>% count(isco)
 survemp %>% count(permcon)
 survemp %>% count(permcon.imp)
 survemp2 %>% count(permcon)
@@ -78,6 +99,9 @@ survemp2 %>% count(permcon)
 #   mutate(jbpl = as.character(jbpl)) %>% 
 #   fill(priv, .direction = "up")
 #It appears that only permcon has a significant effect.  
+
+xsex <- xsex %>% mutate(pidp = as.factor(pidp))
+fb_check <- fb_check %>% mutate(pidp = as.factor(pidp))
 
 #Impute missing values into permcon
 wide_permcon <- survemp %>% 
@@ -119,7 +143,7 @@ imp_permcon<- imp_wide_permcon %>%
 
 survemp %>% count(event2)  
 str(survemp)
-testglm <- glm(formula = event2 ~ t2_3 + agemn + agesq + se_ee + jbsec.dummy*permcon.imp + edu_cat,
+testglm <- glm(formula = event2 ~ t2_3 + agemn + agesq + se_ee + jbsec.dummy*permcon.imp + edu_cat + isco,
                family = binomial(link = "cloglog"),
                data = survemp)
 summary(testglm)
@@ -209,18 +233,18 @@ plot(allEffects(aov18), multiline=TRUE, ci.style="bars")
 #############################################################################
 
 #Men Dataframe
-survmemp <- survemp %>% filter(edu_cat != "other", sex == 1)
+survmemp <- survemp %>% filter(sex == 1)
 #Women Dataframe
-survfemp <- survemp %>% filter(edu_cat != "other", sex == 2)
+survfemp <- survemp %>% filter(sex == 2)
 
-empmglm <- glm(formula = event2 ~ t2_3 + se_ee + jbsec.dummy + permcon + edu_cat + agemn + agesq,
+empmglm <- glm(formula = event2 ~ t2_3 + se_ee + jbsec.dummy + permcon + edu + agemn + agesq,
                family = binomial(link = "cloglog"),
                data = survmemp)
 summary(empmglm)
 summ(empmglm, exp = TRUE) #exp = TRUE means that we want exponentiated estimates
 
 survfemp %>% count(jbsec.dummy)
-empfglm <- glm(formula = event2 ~ t2_3 + se_ee +  jbsec.dummy + permcon +  edu_cat + agemn + agesq,
+empfglm <- glm(formula = event2 ~ t2_3 + se_ee +  jbsec.dummy + permcon +  edu + agemn + agesq,
                family = binomial(link = "cloglog"),
                data = survfemp)
 summary(empfglm)
