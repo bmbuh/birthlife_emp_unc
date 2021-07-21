@@ -355,7 +355,7 @@ summ(baselineglm, exp = TRUE) #takes a minute to process
 
 testglm <- glm(formula = event ~ t2 + agemn + agesq + se_ee + comf + worse*employed + edu_cat,
                 family = binomial(link = "cloglog"),
-                data = surv3)
+                data = surv5)
 testglm2 <- glm(formula = event ~ t2 + agesq + se_ee + finnow.imp + worse + employed + edu_cat,
                family = binomial(link = "cloglog"),
                data = surv3)

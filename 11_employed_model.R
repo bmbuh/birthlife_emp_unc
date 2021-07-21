@@ -81,8 +81,13 @@ survemp <-  surv5 %>%
 
 # %>% #This final number ensures that the timing of the conception is correct
   # left_join(., imp_permcon, by = c("pidp", "wave")) #This dataframe is created a bit further down but retrospectively added here to ensure there is not issues
+survemp %>% count(isco)
+
+# Save survemp DF ---------------------------------------------------------
 
 saveRDS(survemp, "survemp.rds")
+survemp<- file.choose()
+survemp<- readRDS(survemp)
 
 survemp %>% count(isco)
 survemp %>% count(permcon)
