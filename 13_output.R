@@ -16,6 +16,7 @@ library(modelsummary)
 library(jtools)
 library(broom.mixed)
 library(arsenal)
+library(survival)
 # library(plyr)
 
 ###########################################################################
@@ -24,6 +25,20 @@ library(arsenal)
 
 surv5 <- file.choose()
 surv5 <- readRDS(surv5)
+
+test <- surv5 %>% mutate(byr = year(dob))%>% 
+  group_by(pidp) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>% 
+  ungroup() %>% 
+  mutate(fb = ifelse(is.na(kdob), 0, 1)) %>% 
+  mutate(fb = as.factor(fb))
+test %>% count(fb)
+summary(test$byr)
+test %>% 
+  ggplot(aes(byr, fill = fb)) +
+  geom_bar()
 
 survemp<- file.choose()
 survemp<- readRDS(survemp)
@@ -58,6 +73,25 @@ labels(fullstats) <-  c(t2 = "Time since end of education (months)", sex = "Sex"
                         finnow3cat = "Present Finacial", finfut.imp = "Future Finacial", edu = "Educational Attainment")
 summary(fullstats)
 write2word(fullstats , "fullstats_surv6_21-07-2021.docx") 
+
+
+#Kaplan-Meier non-parametric analysis
+kmsurv_sex <- survfit(Surv(t1, t2, event) ~ strata(sex), data = surv6, cluster = pidp)
+summary(kmsurv_sex)
+plot(kmsurv_sex, xlab = "Months since end of education", ylab = "First Birth Probability by Sex")
+ggsurvplot(kmsurv_sex, size = 1,   # change line size
+           # ylim = c(0.69,1),
+           # palette = c("#E7B800", "#2E9FDF"),# custom color palettes
+           conf.int = TRUE,          # Add confidence interval
+           # pval = TRUE,              # Add p-value
+           risk.table = TRUE,        # Add risk table
+           # risk.table.col = "strata",# Risk table color by groups
+           legend.labs =
+             c("Women", "Men"),    # Change legend labels
+           risk.table.height = 0.25, # Useful to change when you have multiple groups
+           ggtheme = theme_bw()      # Change ggplot2 theme
+) + labs(caption = "Survival probaility cut at 0.7")
+
 
 ###########################################################################
 # Full Sample - 3 Years ---------------------------------------------------
