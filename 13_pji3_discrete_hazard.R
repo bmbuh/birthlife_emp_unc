@@ -129,11 +129,16 @@ str(survemp)
 
 #Men
 surv6m <- surv6 %>% filter(sex == 1) 
-surv6m %>% count(event)
+surv6m %>% count(combo)
+pjitestm <- surv6m %>% 
+  mutate(jbless = pji3 > 0)
+pjitestm %>% count(jbless)
 #Women
 surv6f <- surv6 %>% filter(sex == 2)
-surv6f %>% count(event)
-
+surv6f %>% count(combo)
+pjitestf <- surv6f %>% 
+  mutate(jbless = pji3 > 0)
+pjitestf %>% count(jbless)
 
 
 # -------------------------------------------------------------------------
@@ -214,13 +219,25 @@ plot_summs(mglm, fglm,
 #DF for 3 years after the end of education
 survemp3 <- survemp %>% 
   filter(t1 >= 36) %>% 
-  left_join(. , pji_3yr_2, by = "pidp")
+  left_join(. , pji_3yr_2, by = "pidp") %>% 
+  mutate(parttime = ifelse(is.na(parttime), 0, parttime)) %>% 
+  mutate(permcon = ifelse(is.na(permcon), 1, permcon))
 
 #Men
 survemp3m <- survemp3 %>% filter(sex == 1) 
 #Women
 survemp3f <- survemp3 %>% filter(sex == 2)
 
+#Men
+survemp3m %>% count(isco)
+#Women
+survemp3f %>% count(isco)
+pjitestmemp <- survemp3m %>% 
+  mutate(jbless = pji3 > 0)
+pjitestmemp %>% count(jbless)
+pjitestfemp <- survemp3f %>% 
+  mutate(jbless = pji3 > 0)
+pjitestfemp %>% count(jbless)
 
 # -------------------------------------------------------------------------
 # Employed Sample Model Run -----------------------------------------------

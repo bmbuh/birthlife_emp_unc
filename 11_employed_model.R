@@ -95,7 +95,8 @@ survemp <-  surv5 %>%
     isco88 >= 800 & isco88 <=899 ~ "8",
     isco88 >= 900 & isco88 <=999 ~ "9",
     isco88 == 10 ~ "10",
-    isco88 < 0 ~ "NA")) %>% 
+    isco88 < 0 ~ "Unknown",
+    is.na(isco88) ~ "Unknown")) %>% 
   mutate(isco = ifelse(isco == "NA", NA, isco)) %>% 
   left_join(., cci2, by = "startdate") %>% 
   mutate(byr = year(dob)) %>% 
@@ -109,7 +110,7 @@ survemp <-  surv5 %>%
 
 # %>% #This final number ensures that the timing of the conception is correct
   # left_join(., imp_permcon, by = c("pidp", "wave")) #This dataframe is created a bit further down but retrospectively added here to ensure there is not issues
-survemp %>% count(cohort2)
+survemp %>% count(isco)
 
 # Save survemp DF ---------------------------------------------------------
 
