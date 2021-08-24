@@ -55,11 +55,11 @@ pji1 <- transform(pji_sample, from = as.Date(start_date), to = as.Date(end_date)
 
 #Selects the variables needed
 pji2 <- pji1 %>%
-  dplyr::select(pidp, unemp, to, from, lagfb, age45f, age50m, sex, hhorig, dob, kdob)
+  dplyr::select(pidp, unemp, to, from, lagfb, age45f, age50m, sex, hhorig, dob, kdob, status)
 
 #Using the data.table package transforms from spells to months
 dt <- data.table(pji2)
-pji3 <- dt[, list(pidp, unemp, lagfb, age45f, age50m, sex, hhorig, dob, kdob, date = seq(from, to, by = "month")), by = 1:nrow(dt)] %>% 
+pji3 <- dt[, list(pidp, unemp, lagfb, age45f, age50m, sex, hhorig, dob, kdob, status, date = seq(from, to, by = "month")), by = 1:nrow(dt)] %>% 
   mutate(age_start = (dob %--% date)/dyears(1)) %>% 
   filter(age_start >= 16) 
 
@@ -141,6 +141,11 @@ wave1check <- checkpji %>%
 #Creating PJI for first three years after finishing education
 pji5 <- checkpji %>% 
   filter(num <= 36)
+
+#Saving the final PJI monthly file as an RDS for use as a chart in script 14
+saveRDS(pji5, file = "pji5.rds")
+pji5 <- file.choose()
+pji5 <- readRDS(pji5)
 
 pji5_2yr <- checkpji %>% 
   filter(num <= 24)

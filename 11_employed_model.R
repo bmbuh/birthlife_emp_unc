@@ -17,6 +17,20 @@ surv5 <- readRDS(surv5)
 intdates <- file.choose()
 intdates <- readRDS(intdates)
 
+#CCI from the OECD (Aug 2021)
+cci <- read.csv("S:/drafts_paper_1/UK-Consumer_confidence_(CCI-OECD).csv")
+
+cci2 <- cci %>% 
+  separate(TIME, into = c("year", "month"), sep = "-") %>% 
+  rename("cci" = "Value") %>% 
+  dplyr::select(year, month, cci) %>%
+  unite(ccimonth, c(month, year), sep = "-") %>%
+  mutate(ccimonth = parse_date_time(ccimonth, "my")) %>% 
+  rename("startdate" = "ccimonth") #This prepares the DF for joining to the survemp DF
+
+saveRDS(cci2, "cci.rds")
+
+
 library(data.table)
 library(tidyverse)
 library(haven)
@@ -26,6 +40,7 @@ library(sandwich) #for the export_summs function, robust SE
 library(officer) #for the export_summs function, export to word
 library(flextable) #for the export_summs function, export to word
 library(modelsummary)
+library(lubridate)
 
 
 surv5 %>% count(jbsec)
@@ -40,6 +55,10 @@ endates <-  surv5 %>%
   ungroup()
 
 survemp <-  surv5 %>% 
+  group_by(pidp) %>% 
+  fill(permcon, .direction = c("updown")) %>% 
+  fill(parttime, .direction = "updown") %>% 
+  ungroup() %>% 
   mutate(fb = ifelse(is.na(kdob), 0, 1)) %>% 
   filter(wave == 2 | wave == 4 | wave == 6 | wave == 8 | wave == 10) %>% #This removes all non-response waves
   mutate(jbsec = as.character(jbsec)) %>% 
@@ -77,11 +96,20 @@ survemp <-  surv5 %>%
     isco88 >= 900 & isco88 <=999 ~ "9",
     isco88 == 10 ~ "10",
     isco88 < 0 ~ "NA")) %>% 
-  mutate(isco = ifelse(isco == "NA", NA, isco))
+  mutate(isco = ifelse(isco == "NA", NA, isco)) %>% 
+  left_join(., cci2, by = "startdate") %>% 
+  mutate(byr = year(dob)) %>% 
+  mutate(cohort = ifelse(byr <= 1979, 0, 1)) %>% 
+  mutate(cohort = as.character(cohort)) %>% 
+  mutate(cohort2 = ifelse(byr <= 1975, 0, ifelse(byr >= 1990, 2, 1))) %>% 
+  mutate(cohort2 = as.character(cohort2)) %>% 
+  mutate(cohort3 = ifelse(byr <= 1969, 0, ifelse(byr >= 1990, 3, ifelse(byr >= 1970 & byr <= 1979, 1, 2)))) %>% 
+  mutate(cohort3 = as.character(cohort3))
+
 
 # %>% #This final number ensures that the timing of the conception is correct
   # left_join(., imp_permcon, by = c("pidp", "wave")) #This dataframe is created a bit further down but retrospectively added here to ensure there is not issues
-survemp %>% count(isco)
+survemp %>% count(cohort2)
 
 # Save survemp DF ---------------------------------------------------------
 
