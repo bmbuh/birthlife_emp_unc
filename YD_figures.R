@@ -11,7 +11,7 @@ surv5 <- file.choose()
 surv5 <- readRDS(surv5)
 
 #Histogram of PJI of sample (truncated)
-surv %>% 
+surv5 %>% 
   mutate(cutsamp = time1 == 0) %>%
   mutate(fbyes = ifelse(is.na(kdob), 0, 1)) %>% 
   mutate(fbyes = recode(fbyes,
@@ -68,7 +68,7 @@ surv5 %>%
   labs(fill = "Births") +
   ggtitle("Is jobless affecting the entry to parenthood?", subtitle =  "Combined duration, number and proximity of jobless spells - UKHLS Waves 1-10") +
   xlab("Persistent Joblessness Index") +
-  ylab("Count")+
+  ylab("Count") +
   ggsave("Buh_challenge.png") #This is saved for the dataviz course June 2021
 
 # +
