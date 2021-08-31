@@ -43,14 +43,124 @@ pji6 %>%
 
 
 ###########################################################################
-# Descriptives table ------------------------------------------------------
+# sample Description ------------------------------------------------------
 ###########################################################################
 
+# Full Sample -------------------------------------------------------------
 
-#Number of First Births with 3 years of finishing Education
-surv5 %>% count(sex, event)
-surv6 %>% count(sex, event)
+statsurv <- surv6 %>% 
+  group_by(pidp) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>% 
+  mutate(fb = ifelse(is.na(kdob), 0, 1)) %>% 
+  mutate(fb = as.factor(fb)) %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women")) %>% 
+  mutate(edu = fct_relevel(edu, c("high", "medium", "low"))) %>% 
+  ungroup()
 
+statsurv %>% count(sex)
+
+#Mean of PJI for Section 3.4
+statsurv %>% summarise(pji3 = mean(pji3))
+statsurv %>% summarise(se_ee = mean(se_ee))
+statsurv %>% group_by(sex) %>% summarise(pji3 = mean(pji3))
+statsurv %>% group_by(event) %>% summarise(pji3 = mean(pji3))
+
+#Ever report difficult finacial situation
+statsurv2 <- surv6 %>% 
+  filter(finnow3cat == "finddifficult") %>% 
+  group_by(pidp) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women")) %>% 
+  ungroup() 
+
+statsurv2 %>% count(sex)
+
+statsurv3 <- surv6 %>% 
+  filter(finfut.imp == "Worse off") %>% 
+  group_by(pidp) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women")) %>% 
+  ungroup() 
+
+statsurv3 %>% count(sex)
+
+# Table using Arsenal
+mycontrols <- tableby.control(test = FALSE)
+fullstats <-arsenal::tableby(fb ~ t2 + sex + pji3 + finnow3cat + finfut.imp + employed + edu, data = statsurv, control = mycontrols)
+labels(fullstats) <-  c(t2 = "Time since end of education (months)", sex = "Sex", pji3 = "PJI", employed = "Employed",
+                        finnow3cat = "Present Finacial", finfut.imp = "Future Finacial", edu = "Educational Attainment")
+summary(fullstats)
+write2word(fullstats , "fullstats_surv6_21-07-2021.docx") 
+
+
+#Kaplan-Meier non-parametric analysis
+kmsurv_sex <- survfit(Surv(t1, t2, event) ~ strata(sex), data = surv6, cluster = pidp)
+summary(kmsurv_sex)
+plot(kmsurv_sex, xlab = "Months since end of education", ylab = "First Birth Probability by Sex")
+ggsurvplot(kmsurv_sex, size = 1,   # change line size
+           # ylim = c(0.69,1),
+           # palette = c("#E7B800", "#2E9FDF"),# custom color palettes
+           conf.int = TRUE,          # Add confidence interval
+           # pval = TRUE,              # Add p-value
+           risk.table = TRUE,        # Add risk table
+           # risk.table.col = "strata",# Risk table color by groups
+           legend.labs =
+             c("Women", "Men"),    # Change legend labels
+           risk.table.height = 0.25, # Useful to change when you have multiple groups
+           ggtheme = theme_bw()      # Change ggplot2 theme
+) + labs(caption = "Survival probaility cut at 0.7")
+
+# Employed Sample -------------------------------------------------------------
+
+statemp <- survemp %>% 
+  group_by(pidp) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>% 
+  mutate(fb = ifelse(is.na(kdob), 0, 1)) %>% 
+  mutate(fb = as.factor(fb)) %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women")) %>% 
+  mutate(edu = fct_relevel(edu, c("high", "medium", "low"))) %>% 
+  ungroup()
+
+statemp %>% count(jbsec.dummy)
+
+statemp2 <- survemp %>% 
+  filter(jbsec.dummy == 1) %>% 
+  group_by(pidp) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>% 
+  mutate(fb = ifelse(is.na(kdob), 0, 1)) %>% 
+  mutate(fb = as.factor(fb)) %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women")) %>% 
+  ungroup()
+
+statemp2 %>% count(sex)
+
+survemp %>% count(permcon, jbsec.dummy)
+survemp %>% count(parttime, jbsec.dummy)
 
 ###########################################################################
 # PJI Graphics ------------------------------------------------------------
