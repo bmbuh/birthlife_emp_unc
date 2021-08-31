@@ -215,7 +215,7 @@ surv2 %>%
 #First plots to see the effect of covariates
 #Model Fit
 #Sex and time since end of education
-surv3 %>%
+surv6 %>%
   mutate(sex = as.character(sex)) %>%
   mutate(sex = recode(sex,
                       "1" = "Men",

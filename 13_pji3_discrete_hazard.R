@@ -78,9 +78,13 @@ surv6 <- surv5 %>%
   mutate(cohort2 = fct_relevel(cohort2, c("1976-1989", "<=1975", ">=1990"))) %>% 
   mutate(cohort3 = ifelse(byr <= 1969, 0, ifelse(byr >= 1990, 3, ifelse(byr >= 1970 & byr <= 1979, 1, 2)))) %>% 
   mutate(cohort3 = as.character(cohort3)) %>% 
-  left_join(., cci, by = "startdate")
+  left_join(., cci, by = "startdate") %>% 
+  mutate(empalt = ifelse(jbstat == "Paid employed" | jbstat == "Self-employed", "employed", 
+                         ifelse(jbstat == "Unemployed", "unemployed", "inactive"))) %>% 
+  mutate(empalt = ifelse(is.na(empalt), "inactive", empalt))
 
-surv6 %>% count(cci)
+surv5 %>% count(jbstat)
+surv6 %>% count(empalt)
 str(surv6)
 
 #Men
@@ -172,25 +176,56 @@ export_summs(mglm1, empmglm1, mglm2, empmglm2, fglm1, empfglm1, fglm2, empfglm2,
                        "Married - Unknown" = "combomarried-unknown"),
              exp = TRUE,
              to.file = "html",
-             file.name = "full_model_paper1_25-08-21.html")
+             file.name = "full_model_paper1_31-08-21.html")
 
-plot_summs(mglm, fglm, 
-           model.names = c("Men", "Women"),
-           # coefs = c("Time since Education" = "t2",
-           #           "PJI" = "pji3",
-           #           "Finding it difficult" = "finnow3catfinddifficult",
-           #           "Getting by" = "finnow3catgetby",
-           #           "Employed" = "employed",
-           #           "Worse off" = "finfut.impWorse off",
-           #           "Better off" = "finfut.impBetter off",
-           #           "Education Low" = "edulow",
-           #           "Education Medium" = "edumedium",
-           #           "Age in Months" = "agemn",
-           #           "Age Squared" = "agesq"),
-           exp = TRUE) 
+#Export to a PDF file
+export_summs(mglm1, empmglm1, mglm2, empmglm2, fglm1, empfglm1, fglm2, empfglm2,
+             model.names = c("Men 1", "Employed Men 1", "Men 2", "Employed Men 2", "Women 1", "Employed Women 1", "Women 2", "Employed Women 2"),
+             stars = c(`***` = 0.001, `**` = 0.01, `*` = 0.05, '+' = 0.1), 
+             coefs = c("Time since Education" = "t2",
+                       "PJI" = "pji3",
+                       "Employed" = "employed",
+                       "Finding it difficult" = "finnow3catfinddifficult",
+                       "Getting by" = "finnow3catgetby",
+                       "Worse off" = "finfut.impWorse off",
+                       "Better off" = "finfut.impBetter off",
+                       "CCI" = "cci",
+                       "Age in Months" = "agemn",
+                       "Age Squared" = "agesq",
+                       "< = 1975" = "cohort2<=1975",
+                       ">= 1990" = "cohort2>=1990",
+                       "Education Low" = "edulow",
+                       "Education Medium" = "edumedium",
+                       "Immigrant" = "immigrant1",
+                       "Time 2" = "t2_3",
+                       "Likely lose job next 12 months" = "jbsec.dummy1",
+                       "Permanent Contract" = "permcon",
+                       "Part-Time" = "parttime",
+                       "Cohab - Employed" = "combocohab-employed",
+                       "Cohab - Non-employed" = "combocohab-non-employed",
+                       "Cohab - Unknown" = "combocohab-unknown",
+                       "Married - Employed" = "combomarried-employed",
+                       "Married - Non-employed" = "combomarried-non-employed",
+                       "Married - Unknown" = "combomarried-unknown"),
+             exp = TRUE,
+             to.file = "pdf",
+             file.name = "full_model_paper1_31-08-21.pdf")
 
-# +
-  # ggsave("full_model_paper1_21-07-21.png")
+# plot_summs(mglm, fglm, 
+#            model.names = c("Men", "Women"),
+#            coefs = c("Time since Education" = "t2",
+#                      "PJI" = "pji3",
+#                      "Finding it difficult" = "finnow3catfinddifficult",
+#                      "Getting by" = "finnow3catgetby",
+#                      "Employed" = "employed",
+#                      "Worse off" = "finfut.impWorse off",
+#                      "Better off" = "finfut.impBetter off",
+#                      "Education Low" = "edulow",
+#                      "Education Medium" = "edumedium",
+#                      "Age in Months" = "agemn",
+#                      "Age Squared" = "agesq"),
+#            exp = TRUE) +
+#             ggsave("full_model_paper1_21-07-21.png")
 
 
 ###########################################################################
@@ -237,13 +272,13 @@ survemp3f <- survemp3 %>% filter(sex == 2)
 
 
 ####Model for men
-empmglm1 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + isco + agemn + agesq + cohort2 + edu + immigrant,
+empmglm1 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + agemn + agesq + cohort2 + edu + immigrant,
                 family = binomial(link = "cloglog"),
                 data = survemp3m)
 summary(empmglm1)
 summ(empmglm1, exp = TRUE)
 
-empmglm2 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + isco + agemn + agesq + cohort2 + edu + immigrant + combo,
+empmglm2 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + agemn + agesq + cohort2 + edu + immigrant + combo,
                family = binomial(link = "cloglog"),
                data = survemp3m)
 empmglm3 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + agemn + agesq + cohort2 + edu + immigrant,
@@ -253,14 +288,13 @@ summary(empmglm2)
 summ(empmglm2, exp = TRUE)
 
 ####Model for women
-empfglm1 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + isco + agemn + agesq + cohort2 + edu + immigrant,
+empfglm1 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + agemn + agesq + cohort2 + edu + immigrant,
                 family = binomial(link = "cloglog"),
                 data = survemp3f)
 summary(empfglm1)
 summ(empfglm1, exp = TRUE)
 
-empfglm2 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + isco + 
-                  agemn + agesq + cohort2 + edu + immigrant + combo,
+empfglm2 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + agemn + agesq + cohort2 + edu + immigrant + combo,
                 family = binomial(link = "cloglog"),
                 data = survemp3f)
 summary(empfglm2)

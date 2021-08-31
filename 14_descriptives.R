@@ -85,6 +85,7 @@ statsurv2 <- surv6 %>%
 
 statsurv2 %>% count(sex)
 
+#Ever reported "Worse off"
 statsurv3 <- surv6 %>% 
   filter(finfut.imp == "Worse off") %>% 
   group_by(pidp) %>% 
@@ -98,6 +99,21 @@ statsurv3 <- surv6 %>%
   ungroup() 
 
 statsurv3 %>% count(sex)
+
+#Ever reported not employed
+statsurv4 <- surv6 %>% 
+  filter(employed == 0) %>% 
+  group_by(pidp) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women")) %>% 
+  ungroup() 
+
+statsurv4 %>% count(sex)
 
 # Table using Arsenal
 mycontrols <- tableby.control(test = FALSE)
@@ -201,5 +217,100 @@ surv6 %>%
   ylab("Count") +
   ggsave("paper_pji_figure_26-08-21.png")
 
+
+###########################################################################
+# Risk of event by months since end of education --------------------------
+###########################################################################
+
+#Taken from Script 10. Needs to be updated to reflect current educational distribution
+ageedu <- surv5 %>% 
+  dplyr::select(sex, agemn, event, edu, t2, se_ee) %>% 
+  mutate(edu_cat = fct_relevel(edu, c("high", "medium", "low"))) %>% 
+  mutate(age = agemn/12) %>% 
+  filter(event == 1) %>% 
+  arrange(age) %>% 
+  group_by(age) %>% 
+  add_tally() %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  ungroup()
+
+ageedu %>% 
+  count(edu)
+
+
+
+###Months since end of education
+#Number of months since end of education until first birth (Smooth)
+ageedu %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women",)) %>%
+  ggplot(aes(x = t2, y= n, group = edu, color = edu)) +
+  geom_smooth() +
+  # geom_label(group_by(age) %>% filter(x == max(x)), aes(label = sprintf('%0.2f', y)), hjust = -0.5) +
+  ylim(0, 17) +
+  scale_fill_brewer(palette = "Dark2") +
+  theme(aspect.ratio = 1) +
+  labs(color = "Educational Attainment") +
+  xlab("Months since end of formal education") + 
+  ylab("Count of number of first births in specific month since end of education") +
+  ggtitle("Number of Months from End of Education to First birth", subtitle =  "UKHLS = Measured 9 months before first birth") +
+  facet_wrap(~sex) +
+  ggsave("time_endedu_fb.png")
+
+#Number of months since end of education until first birth (Bar)
+ageedu %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women",)) %>%
+  ggplot(aes(x = t2, fill = edu)) +
+  geom_bar() +
+  # geom_label(group_by(age) %>% filter(x == max(x)), aes(label = sprintf('%0.2f', y)), hjust = -0.5) +
+  ylim(0, 17) +
+  # scale_fill_brewer(palette = "Dark2") +
+  theme(aspect.ratio = 1) +
+  labs(fill = "Educational Attainment") +
+  xlab("Months since end of formal education") + 
+  ylab("Count of number of first births in specific month since end of education") +
+  ggtitle("Number of Months from End of Education to First birth", subtitle =  "UKHLS = Measured 9 months before first birth") +
+  facet_wrap(~sex) 
+
+#Number of months since end of education until first birth (Histogram)
+#Changed from months to years to better see the differences
+ageedu %>% 
+  mutate(endeduyear = t2/12) %>% 
+  arrange(endeduyear) %>% 
+  mutate(endeduyear = round(endeduyear)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women",)) %>%
+  ggplot(aes(x = endeduyear, fill = edu)) +
+  geom_histogram(binwidth = 1) +
+  # geom_label(group_by(age) %>% filter(x == max(x)), aes(label = sprintf('%0.2f', y)), hjust = -0.5) +
+  # ylim(0, 17) +
+  # scale_fill_brewer(palette = "Dark2") +
+  theme(aspect.ratio = 1) +
+  labs(fill = "Educational Attainment") +
+  xlab("Years since end of formal education") + 
+  ylab("Count of number of first births in years (rounded)") +
+  ggtitle("Years from End of Education to First Birth", subtitle =  "UKHLS = Measured 9 months before first birth") +
+  facet_wrap(~sex) +
+  ggsave("time_endedu_fb_hist.png")
+
+#Education and Time Model Fit
+surv5 %>%
+  group_by(t2, edu) %>%
+  summarise(event = sum(event),
+            total = n()) %>%
+  mutate(hazard = event/total) %>%
+  # filter(event ==1) %>% 
+  ggplot(aes(x = t2,
+             y = log(-log(1-hazard)),
+             col = edu)) +
+  geom_point() +
+  geom_smooth() +
+  ylab("log(-log(1 - hazard)))") +
+  xlab("Months since end of formal education") +
+  ggsave("flm_hazard_edu_31-08-2021.png")
 
 
