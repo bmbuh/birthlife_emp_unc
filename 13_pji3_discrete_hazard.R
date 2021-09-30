@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 21.07.2021
-#Last Updated: 25.08.2021
+#Last Updated: 31.08.2021
 
 # install.packages("plyr")
 
@@ -82,6 +82,8 @@ surv6 <- surv5 %>%
   mutate(empalt = ifelse(jbstat == "Paid employed" | jbstat == "Self-employed", "employed", 
                          ifelse(jbstat == "Unemployed", "unemployed", "inactive"))) %>% 
   mutate(empalt = ifelse(is.na(empalt), "inactive", empalt))
+
+saveRDS(surv6, "surv6.rds")
 
 surv5 %>% count(jbstat)
 surv6 %>% count(empalt)
@@ -211,7 +213,41 @@ export_summs(mglm1, empmglm1, mglm2, empmglm2, fglm1, empfglm1, fglm2, empfglm2,
              to.file = "pdf",
              file.name = "full_model_paper1_31-08-21.pdf")
 
-# plot_summs(mglm, fglm, 
+#Export to a docx file
+export_summs(mglm1, empmglm1, mglm2, empmglm2, fglm1, empfglm1, fglm2, empfglm2,
+             model.names = c("Men 1", "Employed Men 1", "Men 2", "Employed Men 2", "Women 1", "Employed Women 1", "Women 2", "Employed Women 2"),
+             stars = c(`***` = 0.001, `**` = 0.01, `*` = 0.05, '+' = 0.1), 
+             coefs = c("Time since Education" = "t2",
+                       "PJI" = "pji3",
+                       "Employed" = "employed",
+                       "Finding it difficult" = "finnow3catfinddifficult",
+                       "Getting by" = "finnow3catgetby",
+                       "Worse off" = "finfut.impWorse off",
+                       "Better off" = "finfut.impBetter off",
+                       "CCI" = "cci",
+                       "Age in Months" = "agemn",
+                       "Age Squared" = "agesq",
+                       "< = 1975" = "cohort2<=1975",
+                       ">= 1990" = "cohort2>=1990",
+                       "Education Low" = "edulow",
+                       "Education Medium" = "edumedium",
+                       "Immigrant" = "immigrant1",
+                       "Time 2" = "t2_3",
+                       "Likely lose job next 12 months" = "jbsec.dummy1",
+                       "Permanent Contract" = "permcon",
+                       "Part-Time" = "parttime",
+                       "Cohab - Employed" = "combocohab-employed",
+                       "Cohab - Non-employed" = "combocohab-non-employed",
+                       "Cohab - Unknown" = "combocohab-unknown",
+                       "Married - Employed" = "combomarried-employed",
+                       "Married - Non-employed" = "combomarried-non-employed",
+                       "Married - Unknown" = "combomarried-unknown"),
+             exp = TRUE,
+             to.file = "docx",
+             file.name = "full_model_paper1_31-08-21.docx")
+
+
+ # plot_summs(mglm, fglm, 
 #            model.names = c("Men", "Women"),
 #            coefs = c("Time since Education" = "t2",
 #                      "PJI" = "pji3",
