@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 21.07.2021
-#Last Updated: 31.08.2021
+#Last Updated: 04.10.2021
 
 # install.packages("plyr")
 
@@ -49,6 +49,8 @@ pji_3yr <- read_dta("S:/r_projects/Emp_Unc_Fertility_Birthlife/pji_busetta_mendo
 cci <- file.choose()
 cci <- readRDS(cci)
 
+hhinc <- file.choose()
+hhinc <- readRDS(hhinc)
 
 ###########################################################################
 # Full Sample - 3 Years ---------------------------------------------------
@@ -63,6 +65,8 @@ pji_3yr_2 <- pji_3yr %>%
   select(pidp, pji3) %>% 
   filter(!is.na(pji3))
 
+hhinc <- hhinc %>% 
+  select(pidp, wave, fihhmnnet4_dv)
 
 #DF for 3 years after the end of education
 surv6 <- surv5 %>% 
@@ -81,7 +85,19 @@ surv6 <- surv5 %>%
   left_join(., cci, by = "startdate") %>% 
   mutate(empalt = ifelse(jbstat == "Paid employed" | jbstat == "Self-employed", "employed", 
                          ifelse(jbstat == "Unemployed", "unemployed", "inactive"))) %>% 
-  mutate(empalt = ifelse(is.na(empalt), "inactive", empalt))
+  mutate(empalt = ifelse(is.na(empalt), "inactive", empalt)) %>% 
+  left_join(., hhinc, by = c("pidp", "wave"))
+  # In case I want to try to impute missing income data
+  # group_by(pidp) %>% 
+  # fill(fihhmnnet4_dv, .direction = "down") %>% 
+  # ungroup
+
+test <- surv6 %>% 
+  select(pidp, wave, event, fihhmnnet4_dv) %>% 
+  mutate(test = ifelse(is.na(fihhmnnet4_dv), 1, 0)) %>% 
+  mutate(test2 = ifelse(is.na(fihhmnnet4_dv) & event == 1, 1, 0))
+
+test %>% count(test)
 
 saveRDS(surv6, "surv6.rds")
 
@@ -121,11 +137,24 @@ mglm1 <- glm(formula = event ~ t2 + pji3 + employed + finnow3cat + finfut.imp + 
 summary(mglm1)
 summ(mglm1, exp = TRUE)
 
-mglm2 <- glm(formula = event ~ t2 + pji3 + employed + finnow3cat + finfut.imp + cci + agemn + agesq + cohort2 + edu + immigrant + combo,
-            family = binomial(link = "cloglog"),
-            data = surv6m)
+mglm2 <- glm(formula = event ~ t2 + pji3 + employed + finnow3cat + finfut.imp + cci + agemn + agesq + cohort2 + edu + immigrant + fihhmnnet4_dv,
+             family = binomial(link = "cloglog"),
+             data = surv6m)
 summary(mglm2)
 summ(mglm2, exp = TRUE)
++ fihhmnnet4_dv
+
+mglm3 <- glm(formula = event ~ t2 + pji3 + employed + finnow3cat + finfut.imp + cci + agemn + agesq + cohort2 + edu + immigrant + combo,
+            family = binomial(link = "cloglog"),
+            data = surv6m)
+summary(mglm3)
+summ(mglm3, exp = TRUE)
+
+mglm4 <- glm(formula = event ~ t2 + pji3 + employed + finnow3cat + finfut.imp + cci + agemn + agesq + cohort2 + edu + immigrant + combo + fihhmnnet4_dv,
+             family = binomial(link = "cloglog"),
+             data = surv6m)
+summary(mglm4)
+summ(mglm4, exp = TRUE)
 
 ####Model for women
 baseline_fglm <- glm(formula = event ~ t2,
@@ -138,11 +167,23 @@ fglm1 <- glm(formula = event ~ t2 + pji3 + employed + finnow3cat + finfut.imp + 
 summary(fglm1)
 summ(fglm1, exp = TRUE)
 
-fglm2 <- glm(formula = event ~ t2 + pji3 + employed + finnow3cat + finfut.imp + cci + agemn + agesq + cohort2 + edu + immigrant + combo,
+fglm2 <- glm(formula = event ~ t2 + pji3 + employed + finnow3cat + finfut.imp + cci + agemn + agesq + cohort2 + edu + immigrant + fihhmnnet4_dv,
             family = binomial(link = "cloglog"),
             data = surv6f)
 summary(fglm2)
 summ(fglm2, exp = TRUE)
+
+fglm3 <- glm(formula = event ~ t2 + pji3 + employed + finnow3cat + finfut.imp + cci + agemn + agesq + cohort2 + edu + immigrant + combo,
+             family = binomial(link = "cloglog"),
+             data = surv6f)
+summary(fglm3)
+summ(fglm3, exp = TRUE)
+
+fglm4 <- glm(formula = event ~ t2 + pji3 + employed + finnow3cat + finfut.imp + cci + agemn + agesq + cohort2 + edu + immigrant + combo + fihhmnnet4_dv,
+             family = binomial(link = "cloglog"),
+             data = surv6f)
+summary(fglm4)
+summ(fglm4, exp = TRUE)
 
 # -------------------------------------------------------------------------
 # Outputs -----------------------------------------------------------------
@@ -175,10 +216,11 @@ export_summs(mglm1, empmglm1, mglm2, empmglm2, fglm1, empfglm1, fglm2, empfglm2,
                        "Cohab - Unknown" = "combocohab-unknown",
                        "Married - Employed" = "combomarried-employed",
                        "Married - Non-employed" = "combomarried-non-employed",
-                       "Married - Unknown" = "combomarried-unknown"),
+                       "Married - Unknown" = "combomarried-unknown",
+                       "Household Income, benefits and deductions adjusted" = "fihhmnnet4_dv"),
              exp = TRUE,
              to.file = "html",
-             file.name = "full_model_paper1_31-08-21.html")
+             file.name = "full_model_paper1_04-10-21.html")
 
 #Export to a PDF file
 export_summs(mglm1, empmglm1, mglm2, empmglm2, fglm1, empfglm1, fglm2, empfglm2,
@@ -280,7 +322,8 @@ survemp3 <- survemp %>%
   mutate(permcon = ifelse(is.na(permcon), 1, permcon)) %>% 
   mutate(cohort2 = ifelse(byr <= 1975, "<=1975", ifelse(byr >= 1990, ">=1990", "1976-1989"))) %>% 
   mutate(cohort2 = as.character(cohort2)) %>% 
-  mutate(cohort2 = fct_relevel(cohort2, c("1976-1989", "<=1975", ">=1990")))
+  mutate(cohort2 = fct_relevel(cohort2, c("1976-1989", "<=1975", ">=1990"))) %>% 
+  left_join(., hhinc, by = c("pidp", "wave"))
   # mutate(permcon = as.character(permcon)) %>% 
   # mutate(parttime = as.character(parttime))
 
@@ -314,10 +357,10 @@ empmglm1 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci +
 summary(empmglm1)
 summ(empmglm1, exp = TRUE)
 
-empmglm2 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + agemn + agesq + cohort2 + edu + immigrant + combo,
+empmglm2 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + agemn + agesq + cohort2 + edu + immigrant + fihhmnnet4_dv,
                family = binomial(link = "cloglog"),
                data = survemp3m)
-empmglm3 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + agemn + agesq + cohort2 + edu + immigrant,
+empmglm3 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + agemn + agesq + cohort2 + edu + immigrant + combo + fihhmnnet4_dv ,
                 family = binomial(link = "cloglog"),
                 data = survemp3m)
 summary(empmglm2)
@@ -330,12 +373,12 @@ empfglm1 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci +
 summary(empfglm1)
 summ(empfglm1, exp = TRUE)
 
-empfglm2 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + agemn + agesq + cohort2 + edu + immigrant + combo,
+empfglm2 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + agemn + agesq + cohort2 + edu + immigrant + fihhmnnet4_dv,
                 family = binomial(link = "cloglog"),
                 data = survemp3f)
 summary(empfglm2)
 summ(empfglm2, exp = TRUE)
-empmglf3 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + agemn + agesq + cohort2 + edu + immigrant,
+empfglm3 <- glm(formula = event2 ~ t2_3 + pji3 + finnow3cat + finfut.imp + cci + jbsec.dummy + permcon + parttime + agemn + agesq + cohort2 + edu + immigrant + combo + fihhmnnet4_dv,
                 family = binomial(link = "cloglog"),
                 data = survemp3f)
 

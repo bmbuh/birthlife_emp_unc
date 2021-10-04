@@ -37,6 +37,12 @@ pji_3yr_2 <- pji_3yr %>%
 
 summary(pji_3yr_2$pji3)
 
+hhinc <- file.choose()
+hhinc <- readRDS(hhinc)
+
+hhinc <- hhinc %>% 
+  select(pidp, wave, fihhmnnet4_dv, fimnnet_dv)
+
 #Histogram of PJI of sample (NOT truncated)
 first3 %>% 
   ggplot(aes(pji3, fill = birth)) +
@@ -69,6 +75,7 @@ first3 %>%
 #DF for first 3 years after the end of education
 first3 <- surv5 %>% 
   left_join(. , pji_3yr_2, by = "pidp") %>% 
+  left_join(., hhinc, by = c("pidp", "wave")) %>% 
   filter(t1 < 36) %>% 
   # jbless creates a variable if the individual had any months of joblessness in the first 3 years
   mutate(jbless = ifelse(pji3 > 0, 1, 0)) %>%
@@ -111,7 +118,7 @@ first3 <- surv5 %>%
   mutate(cohort2 = ifelse(byr >= 1986, ">=1986", "<=1985")) %>% 
   mutate(cohort2 = as.character(cohort2)) %>% 
   # Make the DF manageable by cutting out unneeded variable names
-  select(pidp, obsnumrev, birth, sex, female, dvage, edu, immigrant, gor_dv, cohort3, cohort2, pji3, jbless, jbless2, presbad, futbad, married, cohabnm) %>% 
+  select(pidp, obsnumrev, birth, sex, female, dvage, edu, immigrant, gor_dv, cohort3, cohort2, pji3, jbless, jbless2, presbad, futbad, married, cohabnm, fihhmnnet4_dv, fimnnet_dv) %>% 
   # Cut the sample to just line per individual, removing the long format
   filter(obsnumrev == 1) %>% 
   mutate(cohort3 = fct_relevel(cohort3, c(">=1990", "1976-1989", "<=1975"))) %>% 
@@ -133,7 +140,7 @@ first3f %>% count(birth)
 # Outcome variable is called "birth"
 
 
-logit <- glm(birth ~ female + dvage + edu + immigrant + gor_dv + jbless + presbad + futbad, data = first3, family = "binomial")
+logit <- glm(birth ~ female + dvage + edu + immigrant + gor_dv + jbless + presbad + futbad + fihhmnnet4_dv, data = first3, family = "binomial")
 summary(logit)
 #Wald test to check if the effect of education is overall statisitcally significant
 wald.test(b = coef(logit), Sigma = vcov(logit), Terms = 3:4)
@@ -148,10 +155,10 @@ logitm <- glm(birth ~ dvage + jbless2 + presbad + futbad, data = first3m, family
 summary(logitm)
 logitm1 <- glm(birth ~ dvage + edu + immigrant + jbless2 + presbad + futbad, data = first3m, family = "binomial")
 summary(logitm1)
-logitm2 <- glm(birth ~ dvage + edu + cohort2 + immigrant + jbless2 + presbad + futbad, data = first3m, family = "binomial")
+logitm2 <- glm(birth ~ dvage + edu + immigrant + jbless2 + presbad + futbad + fimnnet_dv, data = first3m, family = "binomial")
 summary(logitm)
 wald.test(b = coef(logitm2), Sigma = vcov(logitm), Terms = 2:3)
-logitm3 <- glm(birth ~ dvage + edu + cohort2 +immigrant + jbless2 + presbad + futbad + married + cohabnm, data = first3m, family = "binomial")
+logitm3 <- glm(birth ~ dvage + edu +immigrant + jbless2 + presbad + futbad + married + cohabnm, data = first3m, family = "binomial")
 summary(logitm3)
 
 # Women
@@ -159,9 +166,9 @@ logitf <- glm(birth ~ dvage + jbless2 + presbad + futbad , data = first3f, famil
 summary(logitf)
 logitf1 <- glm(birth ~ dvage + edu + immigrant + jbless2 + presbad + futbad , data = first3f, family = "binomial")
 summary(logitf1)
-logitf2 <- glm(birth ~ dvage + edu + cohort2 +immigrant + jbless2 + presbad + futbad , data = first3f, family = "binomial")
+logitf2 <- glm(birth ~ dvage + edu +immigrant + jbless2 + presbad + futbad + fimnnet_dv , data = first3f, family = "binomial")
 summary(logitf2)
-logitf3 <- glm(birth ~ dvage + edu + cohort2 +immigrant + jbless2 + presbad + futbad + married + cohabnm, data = first3f, family = "binomial")
+logitf3 <- glm(birth ~ dvage + edu +immigrant + jbless2 + presbad + futbad + married + cohabnm, data = first3f, family = "binomial")
 summary(logitf3)
 
 
@@ -186,7 +193,7 @@ export_summs(logitm, logitm1, logitm2, logitm3, logitf, logitf1, logitf2, logitf
              #           "Married" = "married"),
              exp = TRUE,
              to.file = "html",
-             file.name = "logit_model_paper1_30-09-21.html")
+             file.name = "logit_model_paper1_04-10-21.html")
 
 #Export to a docx file
 export_summs(logitm, logitm1, logitm2, logitm3, logitf, logitf1, logitf2, logitf3,
