@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 23.08.2021
-#Last Updated: 25.08.2021
+#Last Updated: 13.10.2021
 
 
 library(data.table)
@@ -16,6 +16,17 @@ library(jtools)
 library(broom.mixed)
 library(arsenal)
 library(survival)
+
+library(lubridate)
+library(survminer)
+library(survPen)
+library(flexsurv)
+library(coxme)
+library(stargazer)
+library(texreg)
+library(forestplot)
+library(sjPlot)
+
 
 
 # Load DF -----------------------------------------------------------------
@@ -60,7 +71,8 @@ statsurv <- surv6 %>%
                       "1" = "Men",
                       "2" = "Women")) %>% 
   mutate(edu = fct_relevel(edu, c("high", "medium", "low"))) %>% 
-  ungroup()
+  ungroup() %>% 
+  unite(edusex, edu, sex, sep = "-", remove = FALSE)
 
 statsurv %>% count(sex)
 
@@ -70,7 +82,7 @@ statsurv %>% summarise(se_ee = mean(se_ee))
 statsurv %>% group_by(sex) %>% summarise(pji3 = mean(pji3))
 statsurv %>% group_by(event) %>% summarise(pji3 = mean(pji3))
 
-#Ever report difficult finacial situation
+#Ever report difficult financial situation
 statsurv2 <- surv6 %>% 
   filter(finnow3cat == "finddifficult") %>% 
   group_by(pidp) %>% 
@@ -117,29 +129,13 @@ statsurv4 %>% count(sex)
 
 # Table using Arsenal
 mycontrols <- tableby.control(test = FALSE)
-fullstats <-arsenal::tableby(fb ~ t2 + sex + pji3 + finnow3cat + finfut.imp + employed + edu, data = statsurv, control = mycontrols)
+fullstats <-arsenal::tableby(edusex ~ t2 + fb  + pji3 + finnow3cat + finfut.imp + employed, data = statsurv, control = mycontrols)
 labels(fullstats) <-  c(t2 = "Time since end of education (months)", sex = "Sex", pji3 = "PJI", employed = "Employed",
                         finnow3cat = "Present Finacial", finfut.imp = "Future Finacial", edu = "Educational Attainment")
 summary(fullstats)
-write2word(fullstats , "fullstats_surv6_21-07-2021.docx") 
+write2html(fullstats , "fullstats_surv6_13-10-2021.html") 
 
 
-#Kaplan-Meier non-parametric analysis
-kmsurv_sex <- survfit(Surv(t1, t2, event) ~ strata(sex), data = surv6, cluster = pidp)
-summary(kmsurv_sex)
-plot(kmsurv_sex, xlab = "Months since end of education", ylab = "First Birth Probability by Sex")
-ggsurvplot(kmsurv_sex, size = 1,   # change line size
-           # ylim = c(0.69,1),
-           # palette = c("#E7B800", "#2E9FDF"),# custom color palettes
-           conf.int = TRUE,          # Add confidence interval
-           # pval = TRUE,              # Add p-value
-           risk.table = TRUE,        # Add risk table
-           # risk.table.col = "strata",# Risk table color by groups
-           legend.labs =
-             c("Women", "Men"),    # Change legend labels
-           risk.table.height = 0.25, # Useful to change when you have multiple groups
-           ggtheme = theme_bw()      # Change ggplot2 theme
-) + labs(caption = "Survival probaility cut at 0.7")
 
 # Employed Sample -------------------------------------------------------------
 
@@ -312,5 +308,54 @@ surv5 %>%
   ylab("log(-log(1 - hazard)))") +
   xlab("Months since end of formal education") +
   ggsave("flm_hazard_edu_31-08-2021.png")
+
+# ------------------------------------------------------------------------------
+#Kaplan-Meier non-parametric analysis ------------------------------------------
+# ------------------------------------------------------------------------------
+
+km <- surv6 %>% 
+  mutate(edu = fct_relevel(edu, c("high", "medium", "low")))
+
+# This plot shows the survival curves stratified by education
+kmsurv <- survfit(Surv(t1, t2, event) ~ strata(edu), data = km, cluster = pidp)
+summary(kmsurv)
+plot(kmsurv, xlab = "Time in months since End of Education", ylab = "First Birth Probability by Education")
+ggsurvplot(kmsurv, size = 1, 
+           xlim = c(50, 510),
+           # change line size
+           ylim = c(0.25,1),
+           palette = c("#264653", "#2a9d8f", "#e9c46a"),# custom color palettes
+           conf.int = TRUE,            # Add confidence interval
+           # pval = TRUE,              # Add p-value
+           risk.table = TRUE,          # Add risk table
+           # risk.table.col = "strata",  # Risk table color by groups
+           legend.labs = c("High", "Medium", "Low"),    # Change legend labels
+           risk.table.height = 0.25, # Useful to change when you have multiple groups
+           ggtheme = theme_bw(),      # Change ggplot2 theme
+           title = "Kaplan-Meier non-parametric analysis",
+           legend.title = "Education") 
+
+
+ # + labs(caption = "Survival probability cut at 0.3")
+
+
+# This plot shows the survival curves stratified by education and sex
+kmsurv2 <- survfit(Surv(t1, t2, event) ~ strata(edu, sex), data = km, cluster = pidp)
+summary(kmsurv2)
+plot(kmsurv2, xlab = "Time in months since End of Education", ylab = "First Birth Probability by Education")
+ggsurvplot(kmsurv2, size = 1, 
+           xlim = c(50, 510),
+           # change line size
+           ylim = c(0.25,1),
+           palette = c("#2F3B2B", "#546A4D", "#228FAA", "#44BCDA", "#F29602", "#FDB849"),# custom color palettes
+           conf.int = TRUE,            # Add confidence interval
+           # pval = TRUE,              # Add p-value
+           risk.table = TRUE,          # Add risk table
+           # risk.table.col = "strata",  # Risk table color by groups
+           legend.labs = c("High Men", "High Women", "Medium Men", "Medium Women", "Low Men", "Low Women"),    # Change legend labels
+           risk.table.height = 0.25, # Useful to change when you have multiple groups
+           ggtheme = theme_bw(),      # Change ggplot2 theme
+           title = "Kaplan-Meier non-parametric analysis",
+           legend.title = "Education")
 
 

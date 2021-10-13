@@ -119,6 +119,17 @@ surv6f <- surv6 %>% filter(sex == 2)
 # pjitestf %>% count(jbless)
 
 
+#High education
+surv6high <- surv6 %>% filter(edu == "high") 
+# surv6m %>% count(combo)
+# pjitestm <- surv6m %>% 
+#   mutate(jbless = pji3 > 0)
+# pjitestm %>% count(jbless)
+#Medium Education
+surv6medium <- surv6 %>% filter(edu == "medium")
+#Low Education
+surv6low<- surv6 %>% filter(edu == "low")
+
 
 
 # -------------------------------------------------------------------------
@@ -131,7 +142,7 @@ baseline_mglm <- glm(formula = event ~ t2,
                      data = surv6m)
 summ(baseline_mglm, exp = TRUE, scale = TRUE)
 
-mglm1 <- glm(formula = event ~ t2 + pji3 + employed + finnow3cat + finfut.imp + cci + agemn + agesq + cohort2 + edu + immigrant,
+mglm1 <- glm(formula = event ~ t2 + pji3 + employed +finnow3cat + finfut.imp + cci + agemn + agesq + cohort2 + edu + immigrant,
              family = binomial(link = "cloglog"),
              data = surv6m)
 summary(mglm1)
