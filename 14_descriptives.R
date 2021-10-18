@@ -129,11 +129,11 @@ statsurv4 %>% count(sex)
 
 # Table using Arsenal
 mycontrols <- tableby.control(test = FALSE)
-fullstats <-arsenal::tableby(edusex ~ t2 + fb  + pji3 + finnow3cat + finfut.imp + employed, data = statsurv, control = mycontrols)
+fullstats <-arsenal::tableby(edusex ~ t2 + fb  + pji3 + finnow3cat + finfut.imp + employed + combo, data = statsurv, control = mycontrols)
 labels(fullstats) <-  c(t2 = "Time since end of education (months)", sex = "Sex", pji3 = "PJI", employed = "Employed",
                         finnow3cat = "Present Finacial", finfut.imp = "Future Finacial", edu = "Educational Attainment")
 summary(fullstats)
-write2html(fullstats , "fullstats_surv6_13-10-2021.html") 
+write2html(fullstats , "fullstats_surv6_18-10-2021.html") 
 
 
 
