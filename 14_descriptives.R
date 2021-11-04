@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 23.08.2021
-#Last Updated: 13.10.2021
+#Last Updated: 02.11.2021
 
 
 library(data.table)
@@ -32,25 +32,25 @@ library(sjPlot)
 # Load DF -----------------------------------------------------------------
 # From script 3-3
 # Already cuts off for the first three years only
-pji5 <- file.choose()
-pji5 <- readRDS(pji5)
-
-
-
-pji6 <- pji5 %>% 
-  mutate(empstat = ifelse(status <= 2 | status == 100, "Employed", 
-                          ifelse(status == 3, "Unemployed",
-                                 ifelse(status == 7, "Full-Time Student",
-                                        ifelse(status == 9 | status == 11, "Gov't Training Scheme/Appretinceship",
-                                               ifelse(status == 103, "National Service", "Inactive"))))))
-
-pji6 %>% count(empstat)
-
-#Attempt to make a figure that shows the variation in status for the first three years post-education
-#Does not actually display much variation and is relatively uninteresting
-pji6 %>% 
-  ggplot(aes(x = num, fill = empstat)) +
-  geom_bar(position = 'fill')
+# pji5 <- file.choose()
+# pji5 <- readRDS(pji5)
+# 
+# 
+# 
+# pji6 <- pji5 %>% 
+#   mutate(empstat = ifelse(status <= 2 | status == 100, "Employed", 
+#                           ifelse(status == 3, "Unemployed",
+#                                  ifelse(status == 7, "Full-Time Student",
+#                                         ifelse(status == 9 | status == 11, "Gov't Training Scheme/Appretinceship",
+#                                                ifelse(status == 103, "National Service", "Inactive"))))))
+# 
+# pji6 %>% count(empstat)
+# 
+# #Attempt to make a figure that shows the variation in status for the first three years post-education
+# #Does not actually display much variation and is relatively uninteresting
+# pji6 %>% 
+#   ggplot(aes(x = num, fill = empstat)) +
+#   geom_bar(position = 'fill')
 
 
 ###########################################################################
@@ -127,14 +127,31 @@ statsurv4 <- surv6 %>%
 
 statsurv4 %>% count(sex)
 
+# Descrptive Stats: First Table Attempt
+# mycontrols <- tableby.control(test = FALSE)
+# fullstats <-arsenal::tableby(edusex ~ t2 + fb  + pji3 + finnow3cat + finfut.imp + employed + combo, data = statsurv, control = mycontrols)
+# labels(fullstats) <-  c(t2 = "Time since end of education (months)", sex = "Sex", pji3 = "PJI", employed = "Employed",
+#                         finnow3cat = "Present Finacial", finfut.imp = "Future Finacial", edu = "Educational Attainment")
+# summary(fullstats)
+# write2html(fullstats , "fullstats_surv6_18-10-2021.html") 
+
 # Table using Arsenal
 mycontrols <- tableby.control(test = FALSE)
-fullstats <-arsenal::tableby(edusex ~ t2 + fb  + pji3 + finnow3cat + finfut.imp + employed + combo, data = statsurv, control = mycontrols)
+fullstats <-arsenal::tableby(edusex ~ pji3 + finnow3cat + finfut.imp + employed + cohort2 + immigrant + combo, data = surv6, control = mycontrols)
 labels(fullstats) <-  c(t2 = "Time since end of education (months)", sex = "Sex", pji3 = "PJI", employed = "Employed",
                         finnow3cat = "Present Finacial", finfut.imp = "Future Finacial", edu = "Educational Attainment")
 summary(fullstats)
-write2html(fullstats , "fullstats_surv6_18-10-2021.html") 
+write2html(fullstats , "fullstats_surv6_04-11-2021.html") 
+write2word(fullstats , "fullstats_surv6_04-11-2021.docx") 
 
+# Table using Arsenal
+mycontrols <- tableby.control(test = FALSE)
+empstats <-arsenal::tableby(edusex ~ pji3 + finnow3cat + finfut.imp + employed + jbsec.dummy + permcon + parttime + cohort2 + immigrant + combo, data = survemp3, control = mycontrols)
+labels(empstats) <-  c(t2 = "Time since end of education (months)", sex = "Sex", pji3 = "PJI", employed = "Employed",
+                        finnow3cat = "Present Finacial", finfut.imp = "Future Finacial", edu = "Educational Attainment")
+summary(empstats)
+write2html(empstats , "empstats_surv6_04-11-2021.html") 
+write2word(empstats , "empstats_surv6_04-11-2021.docx") 
 
 
 # Employed Sample -------------------------------------------------------------
@@ -221,7 +238,7 @@ surv6 %>%
 #Taken from Script 10. Needs to be updated to reflect current educational distribution
 ageedu <- surv5 %>% 
   dplyr::select(sex, agemn, event, edu, t2, se_ee) %>% 
-  mutate(edu_cat = fct_relevel(edu, c("high", "medium", "low"))) %>% 
+  mutate(edu = fct_relevel(edu, c("high", "medium", "low"))) %>% 
   mutate(age = agemn/12) %>% 
   filter(event == 1) %>% 
   arrange(age) %>% 

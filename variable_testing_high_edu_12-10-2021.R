@@ -1,23 +1,101 @@
 #Coded by: Brian Buh
 #Started on: 11.10.2021
-#Last Updated: 
+#Last Updated: 02.11.2021
 
+#full sample mean age & months since educations
+fbsurv6 <- surv6 %>% filter(event == 1)
+fbsurv6m <- fbsurv6 %>% filter(sex == 1)
+fbsurv6f <- fbsurv6 %>% filter(sex == 2)
+summary(fbsurv6$agebirth)
+summary(fbsurv6m$agebirth)
+summary(fbsurv6f$agebirth)
+summary(fbsurv6m$t2)
+summary(fbsurv6f$t2)
+
+# --------------------------------------------------------------------------------------
+#Testing to see if removing births in the first 3 year affects transition to parenthood
+# --------------------------------------------------------------------------------------
+
+fbsurv5 <- surv5 %>%  mutate(agebirth = dvage + 0.75) %>% filter(event == 1)
+fbsurv5m <- fbsurv5 %>% filter(sex == 1)
+fbsurv5f <- fbsurv5 %>% filter(sex == 2)
+summary(fbsurv5$agebirth)
+summary(fbsurv5m$agebirth)
+summary(fbsurv5f$agebirth)
+summary(fbsurv5m$t2)
+summary(fbsurv5f$t2)
+
+#High
+surv5high <- fbsurv5 %>% filter(edu == "high")
+fbsurv5high <- surv5high %>% filter(event == 1)
+fbsurv5highm <- fbsurv5high %>% filter(sex == 1)
+fbsurv5highf <- fbsurv5high %>% filter(sex == 2)
+summary(fbsurv5highm$agebirth)
+summary(fbsurv5highf$agebirth)
+summary(fbsurv5highm$t2)
+summary(fbsurv5highf$t2)
+
+surv5medium <- fbsurv5 %>% filter(edu == "medium")
+fbsurv5medium <- surv5medium %>% filter(event == 1)
+fbsurv5mediumm <- fbsurv5medium %>% filter(sex == 1)
+fbsurv5mediumf <- fbsurv5medium %>% filter(sex == 2)
+summary(fbsurv5mediumm$agebirth)
+summary(fbsurv5mediumf$agebirth)
+summary(fbsurv5mediumm$t2)
+summary(fbsurv5mediumf$t2)
+
+surv5low <- fbsurv5 %>% filter(edu == "low")
+fbsurv5low <- surv5low %>% filter(event == 1)
+fbsurv5lowm <- fbsurv5low %>% filter(sex == 1)
+fbsurv5lowf <- fbsurv5low %>% filter(sex == 2)
+summary(fbsurv5lowm$agebirth)
+summary(fbsurv5lowf$agebirth)
+summary(fbsurv5lowm$t2)
+summary(fbsurv5lowf$t2)
+
+#The general pattern of the months from EE to conception is the same when including the first 3 years.
+
+# -------------------------------------------------------------------
+# Testing for the age of first birth and months from EE to conception
+# -------------------------------------------------------------------
 
 #Use the surv6 RDS created on script 13
 #High education
-surv6high <- surv6 %>% filter(edu == "high") 
+surv6high <- surv6 %>% filter(edu == "high")
 surv6highm <- surv6high %>% filter(sex == 1)
 surv6highf <- surv6high %>% filter(sex == 2)
 
+summary(surv6high$agebirth)
+
+# create data sets to find the average age and months since end of education for those that experience first child birth
+fbsurv6high <- surv6high %>% filter(event == 1)
+fbsurv6highm <- fbsurv6high %>% filter(sex == 1)
+fbsurv6highf <- fbsurv6high %>% filter(sex == 2)
+summary(fbsurv6high$agebirth)
+summary(fbsurv6highm$agebirth)
+summary(fbsurv6highf$agebirth)
+summary(fbsurv6highm$t2)
+summary(fbsurv6highf$t2)
 
 #Use the survemp RDS created on script 13
 #High education
-survemphigh <- survemp3 %>% filter(edu == "high") 
+survemphigh <- survemp3 %>% filter(edu == "high")
 survemphighm <- survemphigh %>% filter(sex == 1)
 survemphighf <- survemphigh %>% filter(sex == 2)
 
 survemphighm %>% count(event)
 survemphighf %>% count(event)
+
+# create data sets to find the average age and months since end of education for those that experience first child birth
+fbsurvemphigh <- survemphigh %>% filter(event == 1)
+fbsurvemphighm <- fbsurvemphigh %>% filter(sex == 1)
+fbsurvemphighf <- fbsurvemphigh %>% filter(sex == 2)
+summary(fbsurvemphigh$agebirth)
+summary(fbsurvemphighm$agebirth)
+summary(fbsurvemphighf$agebirth)
+summary(fbsurvemphighm$t2_3)
+summary(fbsurvemphighf$t2_3)
+
 
 ###########################################################################
 # Testing the high educated variables -------------------------------------

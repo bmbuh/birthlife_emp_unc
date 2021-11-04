@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 21.07.2021
-#Last Updated: 04.10.2021
+#Last Updated: 02.11.2021
 
 # install.packages("plyr")
 
@@ -86,11 +86,17 @@ surv6 <- surv5 %>%
   mutate(empalt = ifelse(jbstat == "Paid employed" | jbstat == "Self-employed", "employed", 
                          ifelse(jbstat == "Unemployed", "unemployed", "inactive"))) %>% 
   mutate(empalt = ifelse(is.na(empalt), "inactive", empalt)) %>% 
-  left_join(., hhinc, by = c("pidp", "wave"))
+  left_join(., hhinc, by = c("pidp", "wave")) %>% 
+  mutate(agebirth = dvage + 0.75) %>% 
+  unite(edusex, edu, sex, sep = "-", remove = FALSE) %>% 
+  mutate(edusex = fct_relevel(edusex, c("high-1", "high-2", "medium-1", "medium-2", "low-1", "low-2"))) %>% 
+  mutate(employed = as.character(employed))
   # In case I want to try to impute missing income data
   # group_by(pidp) %>% 
   # fill(fihhmnnet4_dv, .direction = "down") %>% 
   # ungroup
+
+surv6 %>% count(edusex)
 
 test <- surv6 %>% 
   select(pidp, wave, event, fihhmnnet4_dv) %>% 
@@ -334,9 +340,18 @@ survemp3 <- survemp %>%
   mutate(cohort2 = ifelse(byr <= 1975, "<=1975", ifelse(byr >= 1990, ">=1990", "1976-1989"))) %>% 
   mutate(cohort2 = as.character(cohort2)) %>% 
   mutate(cohort2 = fct_relevel(cohort2, c("1976-1989", "<=1975", ">=1990"))) %>% 
-  left_join(., hhinc, by = c("pidp", "wave"))
-  # mutate(permcon = as.character(permcon)) %>% 
-  # mutate(parttime = as.character(parttime))
+  left_join(., hhinc, by = c("pidp", "wave")) %>% 
+  mutate(agebirth = dvage + 0.75) %>% 
+  unite(edusex, edu, sex, sep = "-", remove = FALSE) %>% 
+  mutate(edusex = fct_relevel(edusex, c("high-1", "high-2", "medium-1", "medium-2", "low-1", "low-2"))) %>% 
+  mutate(permcon= recode(permcon,
+                      "1" = "0",
+                      "2" = "1")) %>% 
+  mutate(permcon = as.character(permcon)) %>%
+  mutate(parttime = as.character(parttime))
+
+
+saveRDS(survemp3, "survemp3.rds")
 
 str(survemp3)
 

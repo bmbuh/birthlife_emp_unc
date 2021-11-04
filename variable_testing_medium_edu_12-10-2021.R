@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 11.10.2021
-#Last Updated: 
+#Last Updated: 02.11.2021
 
 
 #Use the surv6 RDS created on script 13
@@ -9,6 +9,21 @@ surv6medium <- surv6 %>% filter(edu == "medium")
 surv6mediumm <- surv6medium %>% filter(sex == 1)
 surv6mediumf <- surv6medium %>% filter(sex == 2)
 
+summary(surv6medium$agebirth)
+
+# -------------------------------------------------------------------
+# Testing for the age of first birth and months from EE to conception
+# -------------------------------------------------------------------
+
+# create data sets to find the average age and months since end of education for those that experience first child birth
+fbsurv6medium <- surv6medium %>% filter(event == 1)
+fbsurv6mediumm <- fbsurv6medium %>% filter(sex == 1)
+fbsurv6mediumf <- fbsurv6medium %>% filter(sex == 2)
+summary(fbsurv6medium$agebirth)
+summary(fbsurv6mediumm$agebirth)
+summary(fbsurv6mediumf$agebirth)
+summary(fbsurv6mediumm$t2)
+summary(fbsurv6mediumf$t2)
 
 #Use the survemp RDS created on script 13
 #Medium Education
@@ -18,6 +33,16 @@ survempmediumf <- survempmedium %>% filter(sex == 2)
 
 survempmediumm %>% count(event)
 survempmediumf %>% count(event)
+
+# create data sets to find the average age and months since end of education for those that experience first child birth
+fbsurvempmedium <- survempmedium %>% filter(event == 1)
+fbsurvempmediumm <- fbsurvempmedium %>% filter(sex == 1)
+fbsurvempmediumf <- fbsurvempmedium %>% filter(sex == 2)
+summary(fbsurvempmedium$agebirth)
+summary(fbsurvempmediumm$agebirth)
+summary(fbsurvempmediumf$agebirth)
+summary(fbsurvempmediumm$t2_3)
+summary(fbsurvempmediumf$t2_3)
 
 ###########################################################################
 # Testing the medium educated variables -------------------------------------

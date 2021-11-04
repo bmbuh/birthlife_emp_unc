@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 11.10.2021
-#Last Updated: 
+#Last Updated: 02.11.2021
 
 
 #Use the surv6 RDS created on script 13
@@ -8,6 +8,20 @@
 surv6low <- surv6 %>% filter(edu == "low")
 surv6lowm <- surv6low %>% filter(sex == 1)
 surv6lowf <- surv6low %>% filter(sex == 2)
+
+# -------------------------------------------------------------------
+# Testing for the age of first birth and months from EE to conception
+# -------------------------------------------------------------------
+
+# create data sets to find the average age and months since end of education for those that experience first child birth
+fbsurv6low <- surv6low %>% filter(event == 1)
+fbsurv6lowm <- fbsurv6low %>% filter(sex == 1)
+fbsurv6lowf <- fbsurv6low %>% filter(sex == 2)
+summary(fbsurv6low$agebirth)
+summary(fbsurv6lowm$agebirth)
+summary(fbsurv6lowf$agebirth)
+summary(fbsurv6lowm$t2)
+summary(fbsurv6lowf$t2)
 
 #Use the survemp RDS created on script 13
 #Low Education
@@ -19,6 +33,16 @@ survemplowf %>% count(jbsec.dummy)
 
 survemplowm %>% count(event)
 survemplowf %>% count(event)
+
+# create data sets to find the average age and months since end of education for those that experience first child birth
+fbsurvemplow <- survemplow %>% filter(event == 1)
+fbsurvemplowm <- fbsurvemplow %>% filter(sex == 1)
+fbsurvemplowf <- fbsurvemplow %>% filter(sex == 2)
+summary(fbsurvemplow$agebirth)
+summary(fbsurvemplowm$agebirth)
+summary(fbsurvemplowf$agebirth)
+summary(fbsurvemplowm$t2_3)
+summary(fbsurvemplowf$t2_3)
 
 
 ###########################################################################
