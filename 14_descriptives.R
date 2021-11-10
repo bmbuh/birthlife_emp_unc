@@ -1,7 +1,8 @@
 #Coded by: Brian Buh
 #Started on: 23.08.2021
-#Last Updated: 02.11.2021
+#Last Updated: 10.11.2021
 
+# install.packages("cowplot")
 
 library(data.table)
 library(tidyverse)
@@ -18,7 +19,7 @@ library(arsenal)
 library(survival)
 
 library(lubridate)
-library(survminer)
+library(survminer) #for KM Curve printing
 library(survPen)
 library(flexsurv)
 library(coxme)
@@ -26,6 +27,7 @@ library(stargazer)
 library(texreg)
 library(forestplot)
 library(sjPlot)
+library(cowplot)
 
 
 
@@ -57,10 +59,28 @@ library(sjPlot)
 # sample Description ------------------------------------------------------
 ###########################################################################
 
+summary(surv6$pji3)
+meanpjim <- surv6 %>% filter(sex==1) %>% summarize(mean(pji3))
+meanpjif <- surv6 %>% filter(sex==2) %>% summarize(mean(pji3))
+meanpjifb <- surv6 %>% filter(event==1) %>% summarize(mean(pji3))
+meanpjinb <- surv6 %>% filter(event==0) %>% summarize(mean(pji3))
+
+#full sample
+summary(surv5$se_ee)
+
+surv6mfb <- surv6 %>% filter(sex == 1, event == 1)
+surv6ffb <- surv6 %>% filter(sex == 2, event == 1)
+
+summary(surv6mfb$agebirth)
+summary(surv6ffb$agebirth)
+summary(surv6mfb$t2)
+summary(surv6ffb$t2)
+
 # Full Sample -------------------------------------------------------------
 
-statsurv <- surv6 %>% 
+statsurv6 <- surv6 %>% 
   group_by(pidp) %>% 
+  mutate(time = row_number()) %>% 
   arrange(pidp, desc(wave)) %>% 
   mutate(rev_time = row_number()) %>% 
   filter(rev_time == 1) %>% 
@@ -70,17 +90,41 @@ statsurv <- surv6 %>%
   mutate(sex = recode(sex,
                       "1" = "Men",
                       "2" = "Women")) %>% 
-  mutate(edu = fct_relevel(edu, c("high", "medium", "low"))) %>% 
+  # mutate(edu = fct_relevel(edu, c("high", "medium", "low"))) %>% 
   ungroup() %>% 
-  unite(edusex, edu, sex, sep = "-", remove = FALSE)
+  unite(edusex, edu, sex, sep = "-", remove = FALSE) %>%
+  select(pidp, time, rev_time, edusex, sex, se_ee, pji3, event, fb)
 
-statsurv %>% count(sex)
+statsurv5 <- surv5 %>% 
+  group_by(pidp) %>% 
+  mutate(time = row_number()) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>% 
+  mutate(fb = ifelse(is.na(kdob), 0, 1)) %>% 
+  mutate(fb = as.factor(fb)) %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women")) %>% 
+  # mutate(edu = fct_relevel(edu, c("high", "medium", "low"))) %>% 
+  ungroup() %>% 
+  unite(edusex, edu, sex, sep = "-", remove = FALSE) %>%
+  select(pidp, time, rev_time, edusex, sex, se_ee)
 
 #Mean of PJI for Section 3.4
-statsurv %>% summarise(pji3 = mean(pji3))
-statsurv %>% summarise(se_ee = mean(se_ee))
-statsurv %>% group_by(sex) %>% summarise(pji3 = mean(pji3))
-statsurv %>% group_by(event) %>% summarise(pji3 = mean(pji3))
+statsurv6 %>% summarise(pji3 = mean(pji3))
+statsurv5 %>% summarise(se_ee = mean(se_ee))
+statsurv6 %>% group_by(sex) %>% summarise(pji3 = mean(pji3))
+statsurv6 %>% group_by(event) %>% summarise(pji3 = mean(pji3))
+
+summary(surv6$pji3)
+meanpjim <- surv6 %>% filter(sex==1) %>% summarize(mean(pji3))
+meanpjif <- surv6 %>% filter(sex==2) %>% summarize(mean(pji3))
+meanpjifb <- surv6 %>% filter(event==1) %>% summarize(mean(pji3))
+meanpjinb <- surv6 %>% filter(event==0) %>% summarize(mean(pji3))
+
+summary(surv5$se_ee) #full sample
 
 #Ever report difficult financial situation
 statsurv2 <- surv6 %>% 
@@ -153,8 +197,43 @@ summary(empstats)
 write2html(empstats , "empstats_surv6_04-11-2021.html") 
 write2word(empstats , "empstats_surv6_04-11-2021.docx") 
 
+# Number of babies for men over 45
 
+over45 <- surv6 %>% filter(sex == 1, dvage >= 45) %>% count(event)
+
+surv6 %>% count(event)
+survemp3 %>% count (event)
+
+# -----------------------------------------------------------------------------
+# Correlation Education and Finnow -------------------------------------------
+# -----------------------------------------------------------------------------
+
+
+cor.test(surv6$edu, surv6$finnow3cat, method = c("pearson"))
+
+
+### Chi-squared test
+chisq <- chisq.test(surv6$edu, surv6$finnow3cat)
+chisq$observed
+round(chisq$expected,3)
+library(corrplot)
+corrplot(chisq$residuals, is.cor = FALSE)
+#This clearly shows that High education is positively correlated with "doingfine"
+#Low education is positively correlated with "finddifficult" and "getby"
+
+# Contibution in percentage (%)
+contrib <- 100*chisq$residuals^2/chisq$statistic
+round(contrib, 3)
+# Visualize the contribution
+corrplot(contrib, is.cor = FALSE)
+# printing the p-value
+chisq$p.value
+# printing the mean
+chisq$estimate
+
+# -----------------------------------------------------------------------------
 # Employed Sample -------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 statemp <- survemp %>% 
   group_by(pidp) %>% 
@@ -216,10 +295,10 @@ surv6 %>%
   annotate("text", x=.8, y=1200, size = 6, label= "1 = Completely Jobless") +
   scale_fill_manual(values = c("#8FB339", "#3A2D32")) +
   theme_minimal()+
-  theme(legend.position = c(.8,.8), plot.title = element_text(size = 15),
-        axis.title.x = element_text(size = 15, vjust=-1), axis.title.y = element_text(size = 15), 
+  theme(legend.position = c(.8,.8), plot.title = element_text(size = 18),
+        axis.title.x = element_text(size = 18, vjust=-1), axis.title.y = element_text(size = 18), 
         legend.key.size = unit(1, 'cm'),
-        legend.title = element_text(size = 15),
+        legend.title = element_text(size = 18),
         legend.text = element_text(size = 15),
         axis.text = element_text(size = 15)) +
   theme(aspect.ratio = 1) +
@@ -228,8 +307,57 @@ surv6 %>%
 # , subtitle =  "Combined duration, number and proximity of jobless spells - UKHLS Waves 1-10") +
   xlab("Persistent Joblessness Index") +
   ylab("Count") +
-  ggsave("paper_pji_figure_26-08-21.png")
+  ggsave("paper_pji_figure_08-11-21.png", dpi = 1000)
 
+###########################################################################
+# Early-career PJI Robustness Graphic -------------------------------------
+###########################################################################
+
+pji_event <- read.csv("S:/drafts_paper_1/pji_events_data.csv")
+
+pji_event <- pji_event %>% select(time, time2, mean, sd, events, year)
+
+meanpji <- pji_event %>% 
+  ggplot(aes(x = time, y = mean, group = 1)) +
+  geom_point() +
+  geom_path() +
+  # annotate("text", x=.15, y=5000, size = 6, label= "First Births are concentrated here") +
+  # annotate("text", x=.25, y=2000, size = 6, label= "0 = No Jobless Spells") +
+  # annotate("text", x=.8, y=1200, size = 6, label= "1 = Completely Jobless") +
+  # scale_fill_manual(values = c("#8FB339", "#3A2D32")) +
+  theme_minimal()+
+  theme(plot.title = element_text(size = 18),
+        axis.title.x = element_text(size = 18, vjust=-1), axis.title.y = element_text(size = 18),
+        axis.text = element_text(size = 15)) +
+  theme(aspect.ratio = 1) +
+  ggtitle("Mean Persistent Joblessness Index",subtitle = "6-month starting point intervals post-Education") +
+  xlab("Years post-education") +
+  ylab("Mean PJI") +
+  ggsave("paper1_pji_per_year_10-11-21.png", dpi = 1000)
+    
+
+fbevents <- pji_event %>% 
+  mutate(time2 = as.character(time)) %>%
+  mutate(time2 = fct_relevel(time2, c("Full", "1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5"))) %>%
+  ggplot(aes(x = time2, y = events, group = 1)) +
+  geom_point() + 
+  geom_line () +
+  theme_minimal()+
+  theme(plot.title = element_text(size = 18),
+        axis.title.x = element_text(size = 18, vjust=-1), axis.title.y = element_text(size = 18),
+        axis.text = element_text(size = 15)) +
+  theme(aspect.ratio = 1) +
+  ggtitle("First birth events",subtitle = "6-month starting point intervals post-Education") +
+  # , subtitle =  "Combined duration, number and proximity of jobless spells - UKHLS Waves 1-10") +
+  xlab("Years post-education") +
+  ylab("Count of first birth events") +
+  ggsave("paper1_events_per_starting_point_10-11-21.png", dpi = 1000)
+
+#Uses the cowplot package
+combined <- plot_grid(meanpji, fbevents, labels = "AUTO")
+ggsave("combined_meanpji_fbevents_10-11-21.png", dpi = 1000)
+#Save function from cowplot, doesn't work as well as ggsave
+# save_plot("combined2_meanpji_fbevents_10-11-21.pdf", combined, ncol = 2)
 
 ###########################################################################
 # Risk of event by months since end of education --------------------------
@@ -360,19 +488,33 @@ ggsurvplot(kmsurv, size = 1,
 kmsurv2 <- survfit(Surv(t1, t2, event) ~ strata(edu, sex), data = km, cluster = pidp)
 summary(kmsurv2)
 plot(kmsurv2, xlab = "Time in months since End of Education", ylab = "First Birth Probability by Education")
-ggsurvplot(kmsurv2, size = 1, 
-           xlim = c(50, 510),
+ggpar(ggsurvplot, font.legend = size (14))
+km_edusex<- ggsurvplot(kmsurv2, size = 1, #you must save the plot as a variable for ggsave to work
+           surv.scale = "percent",
+           # linetype = c("strata"),
+           # linetype = "strata",
+           xlim = c(58, 540),
+           xscale = 12,
+           break.time.by = 36,
            # change line size
            ylim = c(0.25,1),
-           palette = c("#2F3B2B", "#546A4D", "#228FAA", "#44BCDA", "#F29602", "#FDB849"),# custom color palettes
-           conf.int = TRUE,            # Add confidence interval
+           palette = c("#000000", "#707070", "#1E7167", "#6ED8CC", "#B67102", "#F0C57F"),# custom color palettes (It goes HM, HF, MM, MW, LM, LW)
+           # conf.int = TRUE,            # Add confidence interval
            # pval = TRUE,              # Add p-value
-           risk.table = TRUE,          # Add risk table
-           # risk.table.col = "strata",  # Risk table color by groups
-           legend.labs = c("High Men", "High Women", "Medium Men", "Medium Women", "Low Men", "Low Women"),    # Change legend labels
-           risk.table.height = 0.25, # Useful to change when you have multiple groups
-           ggtheme = theme_bw(),      # Change ggplot2 theme
+           # risk.table = TRUE,          # Add risk table
+           # # risk.table.col = "strata",  # Risk table color by groups
+           legend.labs = c("High Men", "High Women", "Medium Men", "Medium Women", "Low Men", "Low Women"),
+           font.legend = c(14),
+           # Change legend labels
+           # risk.table.height = 0.25, # Useful to change when you have multiple groups
+           # ggtheme = theme_bw(),      # Change ggplot2 theme
+           # legend.title = "Education",
            title = "Kaplan-Meier non-parametric analysis",
-           legend.title = "Education")
+           font.title = c(20),
+           xlab = "Time in years since end of education",
+           ylab = "Remain childless probability")
+
+print(km_edusex)
+ggsave(file = "km_edusex_08-11-21.png", km_edusex, dpi = 1000)
 
 

@@ -1,6 +1,6 @@
 #Coded by: Brian Buh
 #Started on: 24.08.2021
-#Last Updated: 
+#Last Updated: 10.11.2021
 
 ### This script was created as an overflow script for the testing of models using a PJI from the first 2 years 
 #post-education. The final decision to use three years made the code not part of the final project.
@@ -22,6 +22,42 @@ library(survival)
 
 surv5 <- file.choose()
 surv5 <- readRDS(surv5)
+
+#Number of events at various cut offs years
+surv5 %>% count(event)
+
+surv5_1 <- surv5 %>% 
+  filter(t1 >= 12)
+surv5_1 %>% count(event)
+
+surv5_1_5 <- surv5 %>% 
+  filter(t1 >= 18)
+surv5_1_5 %>% count(event)
+
+surv5_2 <- surv5 %>% 
+  filter(t1 >= 24)
+surv5_2 %>% count(event)
+
+surv5_2_5 <- surv5 %>% 
+  filter(t1 >= 30)
+surv5_2_5 %>% count(event)
+
+surv5_3_5 <- surv5 %>% 
+  filter(t1 >= 42)
+surv5_3_5 %>% count(event)
+
+surv5_4 <- surv5 %>% 
+  filter(t1 >= 48)
+surv5_4 %>% count(event)
+
+surv5_4_5 <- surv5 %>% 
+  filter(t1 >= 54)
+surv5_4_5 %>% count(event)
+
+surv5_5 <- surv5 %>% 
+  filter(t1 >= 60)
+surv5_5 %>% count(event)
+
 
 #Making a DF for the PJI2
 
