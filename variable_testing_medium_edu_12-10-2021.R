@@ -44,6 +44,94 @@ summary(fbsurvempmediumf$agebirth)
 summary(fbsurvempmediumm$t2_3)
 summary(fbsurvempmediumf$t2_3)
 
+# ------------------------------------------------------------------------
+# At least 1 wave descriptives --------------------------------------------
+# ------------------------------------------------------------------------
+
+#Number of unique respondents
+statsurv6medium <- surv6medium %>%
+  group_by(pidp) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women")) %>% 
+  ungroup() 
+
+statsurv6medium %>% count(sex)
+#Women = 1507, Men = 1438
+
+#Ever report difficult financial situation
+statsurv6medium1 <- surv6medium %>% 
+  filter(finnow3cat == "finddifficult") %>% 
+  group_by(pidp) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women")) %>% 
+  ungroup() 
+
+statsurv6medium1 %>% count(sex)
+#Women = 247, Men = 284
+#Women = 16.4%, Men = 19.7%
+
+#Ever reported "Worse off"
+statsurv6medium2 <- surv6medium %>% 
+  filter(finfut.imp == "Worse off") %>% 
+  group_by(pidp) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women")) %>% 
+  ungroup() 
+
+statsurv6medium2 %>% count(sex)
+#Women = 386, Men = 391
+#Women = 25.9%, Men = 27.2%
+
+#Ever reported not employed
+statsurv6medium3 <- surv6medium %>% 
+  filter(employed == 0) %>% 
+  group_by(pidp) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women")) %>% 
+  ungroup() 
+
+statsurv6medium3 %>% count(sex)
+# Women = 749, Men = 789
+# Women = 49.7%, Men = 54.9%
+
+#Ever likely lose job
+statsurvempmedium <- survempmedium %>% 
+  filter(jbsec.dummy == 1) %>%
+  group_by(pidp) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women")) %>% 
+  ungroup() 
+
+statsurvempmedium %>% count(sex)
+#Total Women = 734, Men = 779
+# Women = 102, Men = 94
+# Women = 13.9%, Men = 12.1%
+
 ###########################################################################
 # Testing the medium educated variables -------------------------------------
 ###########################################################################

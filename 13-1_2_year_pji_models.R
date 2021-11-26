@@ -194,3 +194,180 @@ export_summs(empmglm,empfglm,
              exp = TRUE,
              to.file = "docx",
              file.name = "employed_model_output_2yrs_21-07-21.docx")
+
+#Making a DF for the PJI2
+
+#PJI First 2 years post-education
+pji_2yr <- read_dta("S:/r_projects/Emp_Unc_Fertility_Birthlife/pji_busetta_mendola/panel_pji_2yr_run.dta")
+
+pji_2yr_2 <- pji_2yr %>% 
+  rename("pidp" = "id", "pji2" = "se_ee") %>% 
+  select(pidp, pji2) %>% 
+  filter(!is.na(pji2))
+
+#DF for 2 years after the end of education
+surv7 <- surv5 %>% 
+  filter(t1 >= 24) %>% 
+  left_join(. , pji_2yr_2, by = "pidp")
+
+#Men
+surv7m <- surv7 %>% filter(sex == 1) 
+surv7m %>% count(event)
+#Women
+surv7f <- surv7 %>% filter(sex == 2)
+surv7f %>% count(event)
+
+###########################################################################
+# Full Sample - 3 Years ---------------------------------------------------
+###########################################################################
+
+#Making a DF for the PJI2
+
+#PJI First 2 years post-education
+pji_3yr <- read_dta("S:/r_projects/Emp_Unc_Fertility_Birthlife/pji_busetta_mendola/panel_pji_3yr_run.dta")
+
+pji_3yr_2 <- pji_3yr %>% 
+  rename("pidp" = "id", "pji3" = "se_ee") %>% 
+  select(pidp, pji3) %>% 
+  filter(!is.na(pji3))
+
+#DF for 2 years after the end of education
+# surv6 <- surv5 %>% 
+#   filter(t1 >= 36) %>% 
+#   left_join(. , pji_3yr_2, by = "pidp")
+
+#Men
+surv6m <- surv6 %>% filter(sex == 1) %>% mutate(employed = as.numeric(employed))
+surv6m %>% count(event)
+#Women
+surv6f <- surv6 %>% filter(sex == 2) %>% mutate(employed = as.numeric(employed))
+surv6f %>% count(event)
+
+# -------------------------------------------------------------------------
+# Full Sample Model Run ---------------------------------------------------
+# -------------------------------------------------------------------------
+
+####Model for men
+baseline_mglm3 <- glm(formula = event ~ t2,
+                      family = binomial(link = "cloglog"),
+                      data = surv6m)
+summ(baseline_mglm3, exp = TRUE, scale = TRUE)
+mglm3 <- glm(formula = event ~ t2 + agemn + agesq + pji3 + finnow3cat + finfut.imp + employed + edu,
+             family = binomial(link = "cloglog"),
+             data = surv6m)
+summary(mglm3)
+summ(mglm3, exp = TRUE) #exp = TRUE means that we want exponentiated estimates
+
+####Model for women
+baseline_fglm3 <- glm(formula = event ~ t2,
+                      family = binomial(link = "cloglog"),
+                      data = surv6f)
+summ(baseline_fglm3, exp = TRUE)
+fglm3 <- glm(formula = event ~ t2 + agemn + agesq + pji3 + finnow3cat + finfut.imp + employed + edu,
+             family = binomial(link = "cloglog"),
+             data = surv6f)
+summary(fglm3)
+summ(fglm3, exp = TRUE) #exp = TRUE means that we want exponentiated estimates
+
+###########################################################################
+# Full Sample - 4 Years ---------------------------------------------------
+###########################################################################
+
+#Making a DF for the PJI2
+
+#PJI First 2 years post-education
+pji_4yr <- read_dta("S:/r_projects/Emp_Unc_Fertility_Birthlife/pji_busetta_mendola/panel_pji_4yr_run.dta")
+
+pji_4yr_2 <- pji_4yr %>% 
+  rename("pidp" = "id", "pji4" = "se_ee") %>% 
+  select(pidp, pji4) %>% 
+  filter(!is.na(pji4))
+
+#DF for 2 years after the end of education
+surv8 <- surv5 %>% 
+  filter(t1 >= 48) %>% 
+  left_join(. , pji_4yr_2, by = "pidp")
+
+#Men
+surv8m <- surv8 %>% filter(sex == 1) 
+surv8m %>% count(event)
+#Women
+surv8f <- surv8 %>% filter(sex == 2)
+surv8f %>% count(event)
+
+# -------------------------------------------------------------------------
+# Full Sample Model Run ---------------------------------------------------
+# -------------------------------------------------------------------------
+
+####Model for men
+baseline_mglm4 <- glm(formula = event ~ t2,
+                      family = binomial(link = "cloglog"),
+                      data = surv8m)
+summ(baseline_mglm4, exp = TRUE, scale = TRUE)
+mglm4 <- glm(formula = event ~ t2 + agemn + agesq + pji4 + finnow3cat + finfut.imp + employed + edu,
+             family = binomial(link = "cloglog"),
+             data = surv8m)
+summary(mglm4)
+summ(mglm4, exp = TRUE) #exp = TRUE means that we want exponentiated estimates
+
+####Model for women
+baseline_fglm4 <- glm(formula = event ~ t2,
+                      family = binomial(link = "cloglog"),
+                      data = surv8f)
+summ(baseline_fglm4, exp = TRUE)
+fglm4 <- glm(formula = event ~ t2 + agemn + agesq + pji4 + finnow3cat + finfut.imp + employed + edu,
+             family = binomial(link = "cloglog"),
+             data = surv8f)
+summary(fglm4)
+summ(fglm4, exp = TRUE) #exp = TRUE means that we want exponentiated estimates
+
+
+
+###########################################################################
+# Table for all groups ----------------------------------------------------
+###########################################################################
+
+
+
+# -------------------------------------------------------------------------
+# Outputs -----------------------------------------------------------------
+# -------------------------------------------------------------------------
+export_summs(fglm2, mglm2, fglm3,mglm3, fglm4, mglm4,
+             model.names = c("Women 2 Years", "Men 2 Years", "Women 3 Years", "Men 3 Years", "Women 4 Years", "Men 4 Years"),
+             stars = c(`***` = 0.001, `**` = 0.01, `*` = 0.05, '+' = 0.1), 
+             coefs = c("Time since Education" = "t2",
+                       "PJI - 2yrs" = "pji2",
+                       "PJI - 3yrs" = "pji3",
+                       "PJI - 4yrs" = "pji4",
+                       "Finding it difficult" = "finnow3catfinddifficult",
+                       "Getting by" = "finnow3catgetby",
+                       "Employed" = "employed",
+                       "Worse off" = "finfut.impWorse off",
+                       "Better off" = "finfut.impBetter off",
+                       "Education Low" = "edulow",
+                       "Education Medium" = "edumedium",
+                       "Age in Months" = "agemn",
+                       "Age Squared" = "agesq"),
+             exp = TRUE,
+             to.file = "html",
+             file.name = "pji_testing_2-3-4yrs_26.11.2021.html")
+
+export_summs(fglm2, mglm2, fglm3,mglm3, fglm4, mglm4,
+             model.names = c("Women 2 Years", "Men 2 Years", "Women 3 Years", "Men 3 Years", "Women 4 Years", "Men 4 Years"),
+             stars = c(`***` = 0.001, `**` = 0.01, `*` = 0.05, '+' = 0.1), 
+             coefs = c("Time since Education" = "t2",
+                       "PJI - 2yrs" = "pji2",
+                       "PJI - 3yrs" = "pji3",
+                       "PJI - 4yrs" = "pji4",
+                       "Finding it difficult" = "finnow3catfinddifficult",
+                       "Getting by" = "finnow3catgetby",
+                       "Employed" = "employed",
+                       "Worse off" = "finfut.impWorse off",
+                       "Better off" = "finfut.impBetter off",
+                       "Education Low" = "edulow",
+                       "Education Medium" = "edumedium",
+                       "Age in Months" = "agemn",
+                       "Age Squared" = "agesq"),
+             exp = TRUE,
+             to.file = "docx",
+             file.name = "pji_testing_2-3-4yrs_26.11.2021.docx")

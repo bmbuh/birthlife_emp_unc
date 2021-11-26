@@ -3,6 +3,7 @@
 #Last Updated: 10.11.2021
 
 # install.packages("cowplot")
+# install.packages("inflection")
 
 library(data.table)
 library(tidyverse)
@@ -28,6 +29,7 @@ library(texreg)
 library(forestplot)
 library(sjPlot)
 library(cowplot)
+library(inflection)
 
 
 
@@ -58,6 +60,37 @@ library(cowplot)
 ###########################################################################
 # sample Description ------------------------------------------------------
 ###########################################################################
+
+#Number of unique respondents
+statsurv6 <- surv6 %>%
+  group_by(pidp) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode(sex,
+                      "1" = "Men",
+                      "2" = "Women")) %>% 
+  ungroup() 
+
+statsurv6 %>% count(sex)
+#Women = 4925, Men = 5926
+
+#Seeing individuals who changed educational level during period
+testedu <- surv6 %>% 
+  select(pidp, wave, edu) %>%
+  group_by(pidp) %>%
+  mutate(numedu = n_distinct(edu)) %>%
+  ungroup()
+
+testedu %>%
+  group_by(pidp) %>% 
+  arrange(pidp, desc(wave)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  filter(rev_time == 1) %>%
+  ungroup() %>%
+  count(numedu)
+
 
 summary(surv6$pji3)
 meanpjim <- surv6 %>% filter(sex==1) %>% summarize(mean(pji3))
@@ -334,7 +367,34 @@ meanpji <- pji_event %>%
   xlab("Years post-education") +
   ylab("Mean PJI") +
   ggsave("paper1_pji_per_year_10-11-21.png", dpi = 1000)
-    
+
+#Finding inflection point (package "inflection")
+pji_event2 <- pji_event %>% filter(time != "Full") %>% mutate(time = as.numeric(time))
+cc <- check_curve(pji_event2$time, pji_event2$mean)
+cc2 <- bede(pji_event2$time, pji_event2$mean, cc$index)
+structure(cc2$iplast)
+findipiterplot(pji_event2$time, pji_event2$mean, cc$index, plots = TRUE, ci = FALSE, doparallel = FALSE)
+knee=d2uik(pji_event2$time, pji_event2$mean)
+knee
+
+
+pji_event2 %>% 
+  ggplot(aes(x = time, y = mean))+
+  geom_smooth() +
+  geom_point() + 
+  geom_vline(xintercept = cc2$iplast) + 
+  labs(y = "test")
+
+# plot(pji_event2$time, pji_event2$mean,type="l")
+lo <- loess(pji_event2$mean ~ pji_event2$time)
+xl <- seq(min(pji_event2$time),max(pji_event2$time), (max(pji_event2$time) - min(pji_event2$time))/1000)
+out = predict(lo,xl)
+check_curve(out$time, out$mean)
+lines(xl, out, col='red', lwd=2)
+# abline(v = cc2$iplast, col= 'blue')
+# 
+# infl <- c(FALSE, diff(diff(out)>0)!=0)
+# points(xl[infl ], out[infl ], col="blue")
 
 fbevents <- pji_event %>% 
   mutate(time2 = as.character(time)) %>%

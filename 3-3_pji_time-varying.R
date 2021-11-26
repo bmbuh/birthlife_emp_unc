@@ -158,6 +158,9 @@ pji5_1yr <- checkpji %>%
 
 pji5_1.5yr <- checkpji %>% 
   filter(num <= 18)
+
+pji5_4yr <- checkpji %>%
+  filter(num <= 48)
 ###
 
 #Used to create LP (unemp) and IP (emp_ratio) vectors
@@ -237,6 +240,22 @@ panel_pji_1.5yr <- pji5_1.5yr %>%
   ungroup() 
 
 write_dta(panel_pji_1.5yr, "panel_pji_1-5yr.dta")
+# ------------------------------------------------------------
+
+#Test if 4 years makes a significant difference
+panel_pji_4yr <- pji5_4yr %>% 
+  mutate(yr = year(date), mn = month(date))%>% 
+  group_by(pidp, yr) %>% 
+  summarize(mn_amt = length(mn), mn_unemp = sum(unemp)) %>% 
+  mutate(unemp = mn_amt * mn_unemp, 
+         unemp = ifelse(unemp > 0, 1, unemp)) %>% 
+  mutate(emp_ratio = (mn_unemp/mn_amt)) %>% 
+  mutate(time = row_number()) %>%
+  arrange(pidp, desc(time)) %>% 
+  mutate(rev_time = row_number()) %>% 
+  ungroup() 
+
+write_dta(panel_pji_4yr, "panel_pji_4yr.dta")
 # ------------------------------------------------------------
 
 ###################################################################
